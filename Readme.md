@@ -1,64 +1,152 @@
-# Biomedical Knowledge Graph Chatbot UI (Phase 1)
+# Tibbe-AG
 
-Phase 1 delivers an MVP React chat interface that is ready to connect to a backend API.
+Biomedical chatbot project using a Knowledge Graph (Neo4j) + LLM reasoning (Groq/Llama), with a React + Tailwind frontend and FastAPI backend.
 
-## Phase 2 (FastAPI + Neo4j + Groq)
+Repository: https://github.com/mfa1zan/Tibbe-AG.git
 
-Phase 2 adds a production-oriented backend in `backend/`:
+## Features
 
-- FastAPI endpoint: `POST /api/chat`
-- User question preprocessing (normalization + synonym expansion)
-- Neo4j KG retrieval with per-keyword TTL caching
-- Async LLM reasoning via Groq-compatible OpenAI endpoint
-- Graceful fallback reply on KG/LLM failure
-- Request/response logging for debugging
-- Optional session memory via `session_id`
+- React chat interface with typing indicator, provenance display, and responsive layout
+- Dark/light mode, font selection, and primary color customization with local persistence
+- FastAPI backend endpoint: `POST /api/chat`
+- Query preprocessing (normalization + synonym expansion)
+- Neo4j KG retrieval with TTL caching
+- Async LLM reasoning via Groq-compatible API
+- Optional session-based multi-turn memory
 
-### Run full stack locally
+## Tech Stack
 
-Backend (Terminal 1):
+- Frontend: React 18, Vite, TailwindCSS
+- Backend: FastAPI, Neo4j Python Driver, HTTPX
+- LLM: Groq Chat Completions API (Llama models)
+
+## Project Structure
+
+```text
+Tibbe-AG/
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── schemas.py
+│   │   └── services/
+│   │       ├── preprocess.py
+│   │       ├── kg_service.py
+│   │       ├── llm_service.py
+│   │       └── chat_service.py
+│   ├── .env
+│   ├── .env.example
+│   └── requirements.txt
+├── src/
+│   ├── App.jsx
+│   ├── api.js
+│   ├── context/ThemeContext.jsx
+│   ├── components/
+│   └── *.css
+├── .env
+├── package.json
+└── vite.config.js
+```
+
+## Prerequisites
+
+- Node.js 18+
+- Python 3.10+
+- Neo4j database (local or Aura)
+- Groq API key
+
+## Setup
+
+### 1) Clone
 
 ```bash
-cd backend
+git clone https://github.com/mfa1zan/Tibbe-AG.git
+cd Tibbe-AG
+```
+
+### 2) Frontend
+
+```bash
+npm install
+```
+
+Create/update root `.env`:
+
+```env
+VITE_USE_PLACEHOLDER_BOT=false
+```
+
+### 3) Backend
+
+```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+pip install -r backend/requirements.txt
 ```
 
-Frontend (Terminal 2):
+Create/update `backend/.env`:
+
+```env
+NEO4J_URI=neo4j+s://<your-db>.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<your-neo4j-password>
+
+GROQ_API_KEY=<your-groq-api-key>
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+
+KG_CACHE_TTL_SECONDS=600
+KG_CACHE_MAXSIZE=512
+```
+
+## Run (Recommended)
+
+### Start full stack from root
 
 ```bash
-npm install
-npm run dev
+npm run dev:full
 ```
 
-Vite proxies `/api/*` to `http://localhost:8000` in development.
+This runs:
 
-## Completed in Phase 1
+- Frontend on `http://localhost:5173`
+- Backend on `http://localhost:8010`
 
-- React 18 app using functional components and hooks
-- TailwindCSS styling for responsive chat layout
-- Chat components split into:
-	- `src/App.jsx`
-	- `src/components/ChatHistory.jsx`
-	- `src/components/ChatBubble.jsx`
-	- `src/components/ChatInput.jsx`
-	- `src/api.js`
-- Backend integration via `POST /api/chat` with payload `{ "message": "..." }`
-- Expects response shape `{ "reply": "..." }`
-- Typing indicator while bot reply is pending
-- Graceful API error handling
+### Or run separately
 
-## Run locally
+Terminal 1:
 
 ```bash
-npm install
-npm run dev
+npm run dev:backend
 ```
 
-Open the local Vite URL shown in terminal.
+Terminal 2:
+
+```bash
+npm run dev:frontend
+```
+
+## API
+
+### POST `/api/chat`
+
+Request:
+
+```json
+{
+  "message": "What helps with fever?",
+  "session_id": "optional-session-id"
+}
+```
+
+Response:
+
+```json
+{
+  "reply": "...",
+  "provenance": ["Honey", "Drug X", "Book Y"]
+}
+```
 
 ## Build
 
@@ -66,14 +154,39 @@ Open the local Vite URL shown in terminal.
 npm run build
 ```
 
-## Optional placeholder mode
+## Troubleshooting
 
-Set this in a local `.env` file to bypass backend during UI testing:
+### `POST http://localhost:5173/api/chat 500`
+
+Usually means frontend proxy cannot reach backend or backend failed at runtime.
+
+1. Ensure backend is running on port `8010`:
 
 ```bash
-VITE_USE_PLACEHOLDER_BOT=true
+curl http://127.0.0.1:8010/health
 ```
 
-The app then returns:
+2. If health fails, start backend with:
 
-`Hello, I am your biomedical assistant.`
+```bash
+npm run dev:backend
+```
+
+3. Check backend terminal logs for Neo4j/Groq errors.
+4. Verify `backend/.env` values (URI, keys, passwords).
+5. Restart both frontend and backend after any `.env` changes.
+
+### Theme not changing
+
+1. Hard refresh browser (`Cmd+Shift+R`).
+2. Check that `<html>` class toggles between `light` and `dark` in devtools.
+3. Clear site data/localStorage if stale values exist.
+
+## Security
+
+- Never commit real API keys/passwords.
+- Rotate any credentials if they were accidentally exposed.
+
+## License
+
+Add your preferred license here.

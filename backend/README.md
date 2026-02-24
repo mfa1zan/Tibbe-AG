@@ -15,7 +15,7 @@ Fill `.env` with Neo4j and Groq credentials.
 ## Run
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8010
 ```
 
 ## API

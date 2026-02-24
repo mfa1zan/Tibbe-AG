@@ -56,9 +56,9 @@ function AppShell() {
           })
         ]);
         setInputValue('');
-      } catch {
+      } catch (error) {
         setMessages((current) => current.filter((item) => item.id !== optimisticMessage.id));
-        setError('Failed to send message. Please try again.');
+        setError(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
       } finally {
         setIsLoading(false);
       }

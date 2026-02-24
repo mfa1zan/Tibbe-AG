@@ -10,15 +10,24 @@ export async function sendMessageToChatApi(message, options = {}) {
     };
   }
 
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ message, session_id: sessionId })
-  });
+  let response;
+  try {
+    response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message, session_id: sessionId })
+    });
+  } catch {
+    throw new Error('Unable to connect to backend. Start FastAPI on port 8010 and try again.');
+  }
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      throw new Error('Backend returned 500. Check FastAPI terminal logs and ensure env values are valid.');
+    }
+
     throw new Error(`Request failed with status ${response.status}`);
   }
 

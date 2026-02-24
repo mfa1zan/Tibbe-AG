@@ -28,7 +28,13 @@ const COLOR_OPTIONS = [
 const ThemeContext = createContext(null);
 
 function resolveInitialTheme() {
-  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  let storedTheme = null;
+  try {
+    storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    storedTheme = null;
+  }
+
   if (storedTheme === 'dark' || storedTheme === 'light') {
     return storedTheme;
   }
@@ -38,7 +44,13 @@ function resolveInitialTheme() {
 }
 
 function resolveStoredOption(storageKey, fallbackValue, availableOptions) {
-  const stored = localStorage.getItem(storageKey);
+  let stored = null;
+  try {
+    stored = localStorage.getItem(storageKey);
+  } catch {
+    stored = null;
+  }
+
   const exists = availableOptions.some((item) => item.value === stored);
   return exists ? stored : fallbackValue;
 }
@@ -54,18 +66,33 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    root.setAttribute('data-theme', theme);
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      return;
+    }
   }, [theme]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--app-font-family', fontFamily);
-    localStorage.setItem(FONT_STORAGE_KEY, fontFamily);
+    try {
+      localStorage.setItem(FONT_STORAGE_KEY, fontFamily);
+    } catch {
+      return;
+    }
   }, [fontFamily]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--primary-color', primaryColor);
-    localStorage.setItem(COLOR_STORAGE_KEY, primaryColor);
+    try {
+      localStorage.setItem(COLOR_STORAGE_KEY, primaryColor);
+    } catch {
+      return;
+    }
   }, [primaryColor]);
 
   const value = useMemo(
