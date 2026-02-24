@@ -3,8 +3,8 @@ import ChatBubble from './ChatBubble';
 
 function TypingIndicator() {
   return (
-    <div className="flex justify-start">
-      <div className="rounded-2xl rounded-bl-sm bg-slate-200 px-4 py-3 text-slate-700">
+    <div className="fade-in flex justify-start">
+      <div className="rounded-2xl rounded-bl-sm bg-slate-200 px-4 py-3 text-slate-700 transition-colors dark:bg-slate-800 dark:text-slate-300">
         <div className="flex items-center gap-1">
           <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.3s]" />
           <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.15s]" />

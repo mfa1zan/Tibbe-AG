@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import ChatHistory from './components/ChatHistory';
 import ChatInput from './components/ChatInput';
+import ThemeToggle from './components/ThemeToggle';
+import { ThemeProvider } from './context/ThemeContext';
 import { sendMessageToChatApi } from './api';
 
 const createMessage = (role, content, metadata = {}) => ({
@@ -13,6 +15,14 @@ const createMessage = (role, content, metadata = {}) => ({
 const SESSION_ID = crypto.randomUUID();
 
 function App() {
+  return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
+  );
+}
+
+function AppShell() {
   const [messages, setMessages] = useState([
     createMessage('bot', 'Hello, I am your biomedical assistant.')
   ]);
@@ -56,10 +66,15 @@ function App() {
   );
 
   return (
-    <main className="flex h-screen flex-col bg-slate-100">
+    <main className="flex h-screen flex-col bg-slate-100 transition-colors dark:bg-slate-950">
       <section className="mx-auto flex h-full w-full max-w-4xl flex-col">
-        <header className="border-b border-slate-200 bg-white px-4 py-3">
-          <h1 className="text-lg font-semibold text-slate-900">Biomedical Knowledge Chat</h1>
+        <header className="border-b border-slate-200 bg-white px-4 py-3 transition-colors dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Biomedical Knowledge Chat
+            </h1>
+            <ThemeToggle />
+          </div>
         </header>
 
         <ChatHistory messages={messages} isTyping={isLoading} />
