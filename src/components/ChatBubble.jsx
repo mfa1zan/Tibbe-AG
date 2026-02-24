@@ -1,5 +1,6 @@
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
+  const showProvenance = !isUser && Array.isArray(message.provenance) && message.provenance.length > 0;
 
   return (
     <article className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -11,6 +12,11 @@ function ChatBubble({ message }) {
         }`}
       >
         {message.content}
+        {showProvenance ? (
+          <p className="mt-2 border-t border-slate-300/60 pt-2 text-xs text-slate-700">
+            Based on KG: {message.provenance.join(', ')}
+          </p>
+        ) : null}
       </div>
     </article>
   );

@@ -3,13 +3,14 @@ import ChatHistory from './components/ChatHistory';
 import ChatInput from './components/ChatInput';
 import { sendMessageToChatApi } from './api';
 
-const createMessage = (role, content) => ({
+const createMessage = (role, content, metadata = {}) => ({
   id: crypto.randomUUID(),
   role,
-  content
+  content,
+  ...metadata
 });
 
-const BOT_REPLY_DELAY_MS = 600;
+const SESSION_ID = crypto.randomUUID();
 
 function App() {
   const [messages, setMessages] = useState([
@@ -32,15 +33,17 @@ function App() {
       setMessages((current) => [...current, optimisticMessage]);
 
       try {
-        const reply = await sendMessageToChatApi(messageText, {
+        const { reply, provenance } = await sendMessageToChatApi(messageText, {
+          sessionId: SESSION_ID,
           usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true'
         });
 
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, BOT_REPLY_DELAY_MS);
-        });
-
-        setMessages((current) => [...current, createMessage('bot', reply)]);
+        setMessages((current) => [
+          ...current,
+          createMessage('bot', reply, {
+            provenance
+          })
+        ]);
         setInputValue('');
       } catch {
         setMessages((current) => current.filter((item) => item.id !== optimisticMessage.id));
