@@ -1,10 +1,13 @@
 const PLACEHOLDER_BOT_REPLY = 'Hello, I am your biomedical assistant.';
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { usePlaceholder = false } = options;
+  const { usePlaceholder = false, sessionId } = options;
 
   if (usePlaceholder) {
-    return PLACEHOLDER_BOT_REPLY;
+    return {
+      reply: PLACEHOLDER_BOT_REPLY,
+      provenance: ['Biomedical KG (placeholder)']
+    };
   }
 
   const response = await fetch('/api/chat', {
@@ -12,7 +15,7 @@ export async function sendMessageToChatApi(message, options = {}) {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ message })
+    body: JSON.stringify({ message, session_id: sessionId })
   });
 
   if (!response.ok) {
@@ -25,5 +28,8 @@ export async function sendMessageToChatApi(message, options = {}) {
     throw new Error('Invalid API response: missing reply');
   }
 
-  return data.reply;
+  return {
+    reply: data.reply,
+    provenance: Array.isArray(data.provenance) ? data.provenance : []
+  };
 }
