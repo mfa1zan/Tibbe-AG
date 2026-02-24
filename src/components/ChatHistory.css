@@ -1,0 +1,31 @@
+.chat-history {
+  @apply flex-1 overflow-y-auto px-4 py-4 pb-32;
+}
+
+.chat-history-inner {
+  @apply space-y-3;
+}
+
+.typing-wrap {
+  @apply flex justify-start;
+}
+
+.typing-bubble {
+  @apply rounded-2xl rounded-bl-sm bg-slate-200 px-4 py-3 text-slate-700 transition-colors dark:bg-slate-800 dark:text-slate-300;
+}
+
+.typing-dots {
+  @apply flex items-center gap-1;
+}
+
+.typing-dot {
+  @apply h-2 w-2 animate-bounce rounded-full bg-slate-500;
+}
+
+.typing-dot-delay-1 {
+  animation-delay: -0.3s;
+}
+
+.typing-dot-delay-2 {
+  animation-delay: -0.15s;
+}

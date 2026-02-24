@@ -4,6 +4,7 @@ import ChatInput from './components/ChatInput';
 import ThemeToggle from './components/ThemeToggle';
 import { ThemeProvider } from './context/ThemeContext';
 import { sendMessageToChatApi } from './api';
+import './App.css';
 
 const createMessage = (role, content, metadata = {}) => ({
   id: crypto.randomUUID(),
@@ -66,13 +67,11 @@ function AppShell() {
   );
 
   return (
-    <main className="flex h-screen flex-col bg-slate-100 transition-colors dark:bg-slate-950">
-      <section className="mx-auto flex h-full w-full max-w-4xl flex-col">
-        <header className="border-b border-slate-200 bg-white px-4 py-3 transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Biomedical Knowledge Chat
-            </h1>
+    <main className="app-shell">
+      <section className="app-container">
+        <header className="app-header">
+          <div className="app-header-row">
+            <h1 className="app-title">Biomedical Knowledge Chat</h1>
             <ThemeToggle />
           </div>
         </header>

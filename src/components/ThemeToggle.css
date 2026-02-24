@@ -1,0 +1,16 @@
+.theme-toggle-wrap {
+  @apply flex flex-wrap items-center justify-end gap-2;
+}
+
+.theme-toggle-button {
+  @apply rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800;
+}
+
+.theme-select {
+  @apply rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
+}
+
+.theme-select:focus-visible {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}

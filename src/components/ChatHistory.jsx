@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react';
 import ChatBubble from './ChatBubble';
+import './ChatHistory.css';
 
 function TypingIndicator() {
   return (
-    <div className="fade-in flex justify-start">
-      <div className="rounded-2xl rounded-bl-sm bg-slate-200 px-4 py-3 text-slate-700 transition-colors dark:bg-slate-800 dark:text-slate-300">
-        <div className="flex items-center gap-1">
-          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.3s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.15s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500" />
+    <div className="typing-wrap fade-in">
+      <div className="typing-bubble">
+        <div className="typing-dots">
+          <span className="typing-dot typing-dot-delay-1" />
+          <span className="typing-dot typing-dot-delay-2" />
+          <span className="typing-dot" />
         </div>
       </div>
     </div>
@@ -23,8 +24,8 @@ function ChatHistory({ messages, isTyping }) {
   }, [messages, isTyping]);
 
   return (
-    <section className="flex-1 overflow-y-auto px-4 py-4 pb-32">
-      <div className="space-y-3">
+    <section className="chat-history">
+      <div className="chat-history-inner">
         {messages.map((message) => (
           <ChatBubble key={message.id} message={message} />
         ))}

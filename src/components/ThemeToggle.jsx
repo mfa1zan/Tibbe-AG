@@ -1,4 +1,5 @@
 import { useThemePreferences } from '../context/ThemeContext';
+import './ThemeToggle.css';
 
 function ThemeToggle() {
   const {
@@ -13,12 +14,12 @@ function ThemeToggle() {
   } = useThemePreferences();
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="theme-toggle-wrap">
       <button
         type="button"
         aria-label="Toggle light and dark mode"
         onClick={toggleTheme}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+        className="theme-toggle-button"
       >
         {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
@@ -31,7 +32,7 @@ function ThemeToggle() {
         aria-label="Choose chat font"
         value={fontFamily}
         onChange={(event) => setFontFamily(event.target.value)}
-        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-offset-2 focus:ring-2 focus:ring-[var(--primary-color)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="theme-select"
       >
         {fontOptions.map((option) => (
           <option key={option.value} value={option.value}>
@@ -48,7 +49,7 @@ function ThemeToggle() {
         aria-label="Choose primary color"
         value={primaryColor}
         onChange={(event) => setPrimaryColor(event.target.value)}
-        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-offset-2 focus:ring-2 focus:ring-[var(--primary-color)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="theme-select"
       >
         {colorOptions.map((option) => (
           <option key={option.value} value={option.value}>
