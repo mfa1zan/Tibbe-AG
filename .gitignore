@@ -1,5 +1,7 @@
 # dependencies
 node_modules/
+.venv/
+venv/
 
 # build outputs
 dist/
@@ -16,6 +18,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
+
+# python cache/build
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
 # macOS
 .DS_Store
