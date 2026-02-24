@@ -14,8 +14,8 @@ const FONT_OPTIONS = [
     value: 'Poppins, Inter, system-ui, sans-serif'
   },
   {
-    label: 'Source Sans Pro',
-    value: '"Source Sans Pro", Inter, system-ui, sans-serif'
+    label: 'Source Sans 3',
+    value: '"Source Sans 3", Inter, system-ui, sans-serif'
   }
 ];
 
@@ -66,14 +66,13 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
+    root.classList.toggle('dark', theme === 'dark');
     root.setAttribute('data-theme', theme);
 
     try {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch {
-      return;
+      return undefined;
     }
   }, [theme]);
 
@@ -82,7 +81,7 @@ export function ThemeProvider({ children }) {
     try {
       localStorage.setItem(FONT_STORAGE_KEY, fontFamily);
     } catch {
-      return;
+      return undefined;
     }
   }, [fontFamily]);
 
@@ -91,7 +90,7 @@ export function ThemeProvider({ children }) {
     try {
       localStorage.setItem(COLOR_STORAGE_KEY, primaryColor);
     } catch {
-      return;
+      return undefined;
     }
   }, [primaryColor]);
 
