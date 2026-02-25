@@ -8,36 +8,23 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
         self._api_key = api_key
-        self._model = model
+        self._default_model = model
         self._base_url = base_url.rstrip("/")
 
-    async def generate_reply(
+    async def generate_completion(
         self,
-        user_message: str,
-        kg_context: str,
-        session_history: list[dict[str, str]] | None = None,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+        model: str | None = None,
     ) -> str:
-        history_text = ""
-        if session_history:
-            turns = [f"{item['role']}: {item['content']}" for item in session_history[-6:]]
-            history_text = "\nRecent conversation:\n" + "\n".join(turns)
-
-        prompt = (
-            "You are a biomedical reasoning assistant. "
-            "Use the provided knowledge graph context first, and if context is sparse, state uncertainty clearly.\n\n"
-            f"Knowledge graph context:\n{kg_context}\n"
-            f"{history_text}\n"
-            f"Question: {user_message}\n"
-            "Answer in a concise, clinically careful tone."
-        )
-
         payload = {
-            "model": self._model,
+            "model": model or self._default_model,
             "messages": [
-                {"role": "system", "content": "You are a biomedical reasoning assistant."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.2,
+            "temperature": temperature,
         }
 
         headers = {
@@ -53,5 +40,17 @@ class LLMService:
             body = response.json()
 
         reply = body["choices"][0]["message"]["content"].strip()
-        logger.debug("LLM reply generated (%s chars)", len(reply))
+        logger.debug("LLM completion generated (%s chars)", len(reply))
         return reply
+
+    async def generate_fallback_answer(self, user_query: str, model: str | None = None) -> str:
+        system_prompt = (
+            "You are PRO-MedGraph, a biomedical assistant. Provide a careful answer and clearly state uncertainty when needed."
+        )
+        user_prompt = f"User question: {user_query}"
+        return await self.generate_completion(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.3,
+            model=model,
+        )

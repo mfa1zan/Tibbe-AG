@@ -1,0 +1,320 @@
+[
+  {
+    "FULL_KG_SCHEMA_JSON": {
+      "relationshipProperties": [
+        {
+          "property": "source",
+          "relationship": "CONTAINS"
+        },
+        {
+          "property": "quantity",
+          "relationship": "CONTAINS"
+        },
+        {
+          "property": "unit",
+          "relationship": "CONTAINS"
+        },
+        {
+          "property": "food_part",
+          "relationship": "CONTAINS"
+        }
+      ],
+      "relationshipCounts": [
+        {
+          "count": 63,
+          "type": "MENTIONED_IN"
+        },
+        {
+          "count": 15,
+          "type": "HAS_DISEASE"
+        },
+        {
+          "count": 17152,
+          "type": "CONTAINS"
+        },
+        {
+          "count": 254,
+          "type": "CURES"
+        },
+        {
+          "count": 297,
+          "type": "IS_LIKELY_EQUIVALENT_TO"
+        },
+        {
+          "count": 160,
+          "type": "IS_IDENTICAL_TO"
+        },
+        {
+          "count": 2795,
+          "type": "IS_WEAK_MATCH_TO"
+        },
+        {
+          "count": 107,
+          "type": "HAS_HADITH"
+        },
+        {
+          "count": 972,
+          "type": "IS_IN_BOOK"
+        }
+      ],
+      "nodeCounts": [
+        {
+          "count": 154,
+          "label": "Disease"
+        },
+        {
+          "count": 14,
+          "label": "DiseaseCategory"
+        },
+        {
+          "count": 59,
+          "label": "Ingredient"
+        },
+        {
+          "count": 5165,
+          "label": "ChemicalCompound"
+        },
+        {
+          "count": 82,
+          "label": "Cure"
+        },
+        {
+          "count": 90,
+          "label": "Hadith"
+        },
+        {
+          "count": 106,
+          "label": "Reference"
+        },
+        {
+          "count": 972,
+          "label": "Drug"
+        },
+        {
+          "count": 1691,
+          "label": "DrugChemicalCompound"
+        },
+        {
+          "count": 2,
+          "label": "Book"
+        }
+      ],
+      "relationshipStructure": [
+        {
+          "from": [
+            "Disease"
+          ],
+          "to": [
+            "Hadith"
+          ],
+          "relationship": "MENTIONED_IN"
+        },
+        {
+          "from": [
+            "DiseaseCategory"
+          ],
+          "to": [
+            "Disease"
+          ],
+          "relationship": "HAS_DISEASE"
+        },
+        {
+          "from": [
+            "Ingredient"
+          ],
+          "to": [
+            "ChemicalCompound"
+          ],
+          "relationship": "CONTAINS"
+        },
+        {
+          "from": [
+            "Ingredient"
+          ],
+          "to": [
+            "Disease"
+          ],
+          "relationship": "CURES"
+        },
+        {
+          "from": [
+            "ChemicalCompound"
+          ],
+          "to": [
+            "DrugChemicalCompound"
+          ],
+          "relationship": "IS_LIKELY_EQUIVALENT_TO"
+        },
+        {
+          "from": [
+            "ChemicalCompound"
+          ],
+          "to": [
+            "DrugChemicalCompound"
+          ],
+          "relationship": "IS_IDENTICAL_TO"
+        },
+        {
+          "from": [
+            "ChemicalCompound"
+          ],
+          "to": [
+            "DrugChemicalCompound"
+          ],
+          "relationship": "IS_WEAK_MATCH_TO"
+        },
+        {
+          "from": [
+            "Reference"
+          ],
+          "to": [
+            "Hadith"
+          ],
+          "relationship": "HAS_HADITH"
+        },
+        {
+          "from": [
+            "Drug"
+          ],
+          "to": [
+            "DrugChemicalCompound"
+          ],
+          "relationship": "CONTAINS"
+        },
+        {
+          "from": [
+            "Drug"
+          ],
+          "to": [
+            "Book"
+          ],
+          "relationship": "IS_IN_BOOK"
+        }
+      ],
+      "nodeLabels": [
+        "Disease",
+        "DiseaseCategory",
+        "Ingredient",
+        "Cure",
+        "ChemicalCompound",
+        "Hadith",
+        "Reference",
+        "Drug",
+        "DrugChemicalCompound",
+        "Book"
+      ],
+      "relationshipTypes": [
+        "HAS_DISEASE",
+        "HAS_HADITH",
+        "CONTAINS",
+        "CURES",
+        "MENTIONED_IN",
+        "IS_IN_BOOK",
+        "IS_IDENTICAL_TO",
+        "IS_LIKELY_EQUIVALENT_TO",
+        "IS_WEAK_MATCH_TO"
+      ],
+      "nodeProperties": [
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "DiseaseCategory"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Ingredient"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Cure"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "ChemicalCompound"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Hadith"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "reference",
+          "labels": [
+            "Reference"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Drug"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "DrugChemicalCompound"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Book"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "link",
+          "labels": [
+            "Book"
+          ]
+        },
+        {
+          "types": [
+            "String"
+          ],
+          "property": "name",
+          "labels": [
+            "Disease"
+          ]
+        }
+      ]
+    }
+  }
+]

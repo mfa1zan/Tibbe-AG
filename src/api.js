@@ -1,4 +1,4 @@
-const PLACEHOLDER_BOT_REPLY = 'Hello, I am your biomedical assistant.';
+const PLACEHOLDER_BOT_REPLY = 'Hello, I am PRO-MedGraph. How can I help you today?';
 
 export async function sendMessageToChatApi(message, options = {}) {
   const { usePlaceholder = false, sessionId } = options;

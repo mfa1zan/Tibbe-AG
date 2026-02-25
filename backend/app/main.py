@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,15 +8,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.logging_config import configure_logging
 from app.schemas import ChatRequest, ChatResponse
+from app.services.answer_generator import AnswerGeneratorService
 from app.services.chat_service import ChatService
+from app.services.cypher_generator import CypherGeneratorService
 from app.services.kg_service import KGService
 from app.services.llm_service import LLMService
+from app.services.validator import ValidatorService
 
 logger = logging.getLogger(__name__)
 
 
 def _build_services() -> tuple[KGService, LLMService, ChatService]:
     settings = get_settings()
+    project_root = Path(__file__).resolve().parents[2]
+    schema_file_path = project_root / "knowledge_graph_schema.json"
 
     kg_service = KGService(
         uri=settings.neo4j_uri,
@@ -23,13 +29,42 @@ def _build_services() -> tuple[KGService, LLMService, ChatService]:
         password=settings.neo4j_password,
         ttl_seconds=settings.kg_cache_ttl_seconds,
         maxsize=settings.kg_cache_maxsize,
+        schema_file_path=str(schema_file_path),
     )
+
+    cypher_model = settings.llm_cypher_model or settings.groq_model
+    answer_model = settings.llm_answer_model or settings.groq_model
+    validator_model = settings.llm_validator_model or settings.groq_model
+    judge_model = settings.llm_judge_model or settings.groq_model
+
     llm_service = LLMService(
         api_key=settings.groq_api_key,
         model=settings.groq_model,
         base_url=settings.groq_base_url,
     )
-    chat_service = ChatService(kg_service=kg_service, llm_service=llm_service)
+    cypher_generator = CypherGeneratorService(
+        llm_service=llm_service,
+        schema_text=kg_service.get_kg_schema(),
+        model=cypher_model,
+    )
+    answer_generator = AnswerGeneratorService(
+        llm_service=llm_service,
+        model=answer_model,
+    )
+    validator_service = ValidatorService(
+        llm_service=llm_service,
+        model=validator_model,
+        judge_model=judge_model,
+    )
+
+    chat_service = ChatService(
+        kg_service=kg_service,
+        llm_service=llm_service,
+        cypher_generator=cypher_generator,
+        answer_generator=answer_generator,
+        validator_service=validator_service,
+        enable_judge_scoring=settings.enable_judge_scoring,
+    )
     return kg_service, llm_service, chat_service
 
 
@@ -69,8 +104,14 @@ async def health() -> dict[str, str]:
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     chat_service: ChatService = app.state.chat_service
-    reply, provenance = await chat_service.process_message(
+    reply, provenance, generated_cypher, kg_result_count, judge_score = await chat_service.process_message(
         user_message=request.message,
         session_id=request.session_id,
     )
-    return ChatResponse(reply=reply, provenance=provenance)
+    return ChatResponse(
+        reply=reply,
+        provenance=provenance,
+        generated_cypher=generated_cypher,
+        kg_result_count=kg_result_count,
+        judge_score=judge_score,
+    )

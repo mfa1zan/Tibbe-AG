@@ -25,7 +25,7 @@ function App() {
 
 function AppShell() {
   const [messages, setMessages] = useState([
-    createMessage('bot', 'Hello, I am your biomedical assistant.')
+    createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?')
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -71,7 +71,7 @@ function AppShell() {
       <section className="app-container">
         <header className="app-header">
           <div className="app-header-row">
-            <h1 className="app-title">Biomedical Knowledge Chat</h1>
+            <h1 className="app-title">PRO-MedGraph</h1>
             <ThemeToggle />
           </div>
         </header>

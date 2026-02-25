@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     groq_api_key: str
     groq_model: str = "llama-3.3-70b-versatile"
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    llm_cypher_model: str | None = None
+    llm_answer_model: str | None = None
+    llm_validator_model: str | None = None
+    llm_judge_model: str | None = None
+    enable_judge_scoring: bool = False
 
     kg_cache_ttl_seconds: int = 600
     kg_cache_maxsize: int = 512
