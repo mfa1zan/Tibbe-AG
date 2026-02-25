@@ -13,8 +13,6 @@ const createMessage = (role, content, metadata = {}) => ({
   ...metadata
 });
 
-const SESSION_ID = crypto.randomUUID();
-
 function App() {
   return (
     <ThemeProvider>
@@ -44,15 +42,20 @@ function AppShell() {
       setMessages((current) => [...current, optimisticMessage]);
 
       try {
-        const { reply, provenance } = await sendMessageToChatApi(messageText, {
-          sessionId: SESSION_ID,
+        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety } = await sendMessageToChatApi(
+          messageText,
+          {
           usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true'
-        });
+          }
+        );
 
         setMessages((current) => [
           ...current,
           createMessage('bot', reply, {
-            provenance
+            evidenceStrength,
+            graphPathsUsed,
+            confidenceScore,
+            safety
           })
         ]);
         setInputValue('');
