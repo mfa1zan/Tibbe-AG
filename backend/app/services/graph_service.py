@@ -243,3 +243,38 @@ def get_hadith_for_disease(disease_name: str) -> list:
         return hadith_items
     except Exception:
         return []
+
+
+def get_ingredients_for_disease(disease_name: str) -> list[dict[str, str]]:
+    """Return all ingredients linked to a disease via CURES as a clean list of id/name items."""
+    driver = _get_driver()
+
+    query = """
+    // Fetch all disease-linked ingredients directly for deterministic ingredient answers.
+    MATCH (d:Disease)
+    WHERE toLower(d.name) = toLower($disease_name)
+    OPTIONAL MATCH (d)<-[:CURES]-(i:Ingredient)
+    WHERE i.name IS NOT NULL
+    RETURN DISTINCT elementId(i) AS id,
+           i.name AS name
+    ORDER BY i.name ASC
+    LIMIT $limit
+    """
+
+    try:
+        with driver.session() as session:
+            rows = list(session.run(query, disease_name=disease_name, limit=500))
+
+        ingredients: list[dict[str, str]] = []
+        for row in rows:
+            name = row.get("name")
+            node_id = row.get("id")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            if not isinstance(node_id, str) or not node_id.strip():
+                continue
+            ingredients.append({"id": node_id.strip(), "name": name.strip()})
+
+        return ingredients
+    except Exception:
+        return []

@@ -17,7 +17,7 @@ function ChatBubble({ message }) {
         className={`chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-bot'}`}
         style={isUser ? { backgroundColor: 'var(--primary-color)' } : undefined}
       >
-        <span>{message.content}</span>
+        <p className="chat-message-text">{message.content}</p>
         {showMeta ? (
           <p className="chat-provenance">
             Evidence: {hasEvidenceStrength ? message.evidenceStrength : 'weak'}

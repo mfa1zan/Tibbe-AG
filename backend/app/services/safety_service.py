@@ -184,6 +184,21 @@ def apply_safety_checks(reasoning: dict, llm_output: dict) -> dict:
     safe_reasoning = _ensure_dict(reasoning)
     safe_output = copy.deepcopy(_ensure_dict(llm_output))
 
+    meta = _ensure_dict(safe_reasoning.get("meta"))
+    kg_applicable = meta.get("kg_applicable")
+    if kg_applicable is False:
+        # For non-graph conversational queries, do not force KG caution notes.
+        # Keep the orchestrator output user-friendly and minimal.
+        safe_output.setdefault("evidence_strength", "weak")
+        safe_output.setdefault("graph_paths_used", 0)
+        safe_output.setdefault("confidence_score", None)
+        safe_output["safety"] = {
+            "caution_flag": False,
+            "caution_notes": [],
+        }
+        logger.info("Safety checks skipped graph cautions for non-KG query")
+        return safe_output
+
     caution_notes = generate_caution_notes(safe_reasoning)
     confidence_score = calculate_confidence(safe_reasoning)
     strengths = _get_mapping_strengths(safe_reasoning)
@@ -192,10 +207,8 @@ def apply_safety_checks(reasoning: dict, llm_output: dict) -> dict:
 
     has_weak_mapping = any(value == "WEAK" for value in strengths)
 
-    # Preserve existing answer content while appending deterministic safety notes.
-    final_answer = safe_output.get("final_answer")
-    if isinstance(final_answer, str):
-        safe_output["final_answer"] = _append_notes_to_answer(final_answer, caution_notes)
+    # Keep answer text clean; expose cautions only in structured metadata.
+    # Frontend can render these notes separately when needed.
 
     # Attach structured metadata for API consumers and UI rendering.
     safe_output["safety"] = {

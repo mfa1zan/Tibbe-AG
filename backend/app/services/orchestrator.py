@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
@@ -16,6 +17,13 @@ FALLBACK_MESSAGE = (
     "PRO-MedGraph could not fully process your request right now. "
     "Please try again with a more specific disease or treatment query."
 )
+
+_GENERAL_QUERY_PATTERN = re.compile(
+    r"^(hi|hello|hey|salam|assalam\s*o\s*alaikum|thanks|thank\s*you|ok|okay|yo|sup|how are you)"
+    r"(?:[\s!,.?]*)$",
+    re.IGNORECASE,
+)
+_INGREDIENT_QUERY_PATTERN = re.compile(r"\b(ingredient|ingredients|herb|herbal|remedy|remedies)\b", re.IGNORECASE)
 
 
 def _run_sync_from_async(coro):
@@ -44,6 +52,7 @@ class GraphRAGOrchestrator:
         entity_extractor: Callable[[str], dict] | None = None,
         subgraph_fetcher: Callable[[str], dict] | None = None,
         hadith_fetcher: Callable[[str], list] | None = None,
+        ingredient_fetcher: Callable[[str], list] | None = None,
         reasoning_formatter: Callable[[dict], dict] | None = None,
     ) -> None:
         settings = get_settings()
@@ -60,6 +69,7 @@ class GraphRAGOrchestrator:
         self._entity_extractor = entity_extractor or entity_service.extract_entities
         self._subgraph_fetcher = subgraph_fetcher or graph_service.get_disease_subgraph
         self._hadith_fetcher = hadith_fetcher or graph_service.get_hadith_for_disease
+        self._ingredient_fetcher = ingredient_fetcher or graph_service.get_ingredients_for_disease
         self._reasoning_formatter = reasoning_formatter or reasoning_builder.build_graph_reasoning
 
     def process_user_query(self, query: str) -> dict:
@@ -107,18 +117,52 @@ class GraphRAGOrchestrator:
                 "output": fallback,
             }
 
+        if self._is_general_query(clean_query):
+            logger.info("General conversational query detected; bypassing KG pipeline")
+            general_answer = await self._generate_general_answer(clean_query)
+            output = {
+                "final_answer": general_answer,
+                "evidence_strength": "weak",
+                "graph_paths_used": 0,
+                "confidence_score": None,
+            }
+            return {
+                "query": clean_query,
+                "entities": {"disease": None, "ingredient": None, "drug": None},
+                "reasoning": {
+                    "meta": {
+                        "kg_applicable": False,
+                    }
+                },
+                "a0_answer": "",
+                "af_answer": general_answer,
+                "output": output,
+            }
+
         entities = self._extract_entities(clean_query)
         disease = entities.get("disease")
         if not disease:
-            logger.warning("Entity extraction returned no disease for query")
-            fallback = self._fallback_response("Disease entity not found")
+            logger.info("No disease entity detected; routing query to general conversational response")
+            general_answer = await self._generate_general_answer(clean_query)
+            output = {
+                "final_answer": general_answer,
+                "evidence_strength": "weak",
+                "graph_paths_used": 0,
+                "confidence_score": None,
+            }
             return {
                 "query": clean_query,
                 "entities": entities,
-                "reasoning": {},
+                "reasoning": {
+                    "meta": {
+                        # Flag used by safety_service to avoid KG caution notes
+                        # for non-graph conversational queries (e.g., "hello").
+                        "kg_applicable": False,
+                    }
+                },
                 "a0_answer": "",
-                "af_answer": fallback["final_answer"],
-                "output": fallback,
+                "af_answer": general_answer,
+                "output": output,
             }
 
         subgraph = self._retrieve_graph(disease)
@@ -127,6 +171,38 @@ class GraphRAGOrchestrator:
         # Step-level structured logging for operational observability.
         graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
         logger.info("Reasoning built: graph_paths_used=%s", graph_paths_used)
+
+        # Deterministic KG answer path: if user explicitly asks for ingredients,
+        # return ingredients directly from graph reasoning instead of relying on
+        # LLM generation that can fail for large contexts.
+        if self._is_ingredient_query(clean_query):
+            direct_ingredient_answer = self._build_ingredient_answer(reasoning, disease)
+            if direct_ingredient_answer:
+                evidence_strength = self._compute_evidence_strength(reasoning)
+                confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
+                output = {
+                    "final_answer": direct_ingredient_answer,
+                    "evidence_strength": evidence_strength,
+                    "graph_paths_used": graph_paths_used,
+                    "confidence_score": confidence_score,
+                }
+                logger.info("Ingredient intent served by direct KG response")
+                return {
+                    "query": clean_query,
+                    "entities": entities,
+                    "reasoning": {
+                        **reasoning,
+                        "meta": {
+                            **(reasoning.get("meta", {}) if isinstance(reasoning, dict) else {}),
+                            # Deterministic KG answer already grounded in direct graph data.
+                            # Keep final text clean (no inline safety note injection).
+                            "deterministic_kg_answer": True,
+                        },
+                    },
+                    "a0_answer": direct_ingredient_answer,
+                    "af_answer": direct_ingredient_answer,
+                    "output": output,
+                }
 
         a0_answer = await self._generate_a0_answer(clean_query, reasoning)
         af_answer = await self._validate_answer(clean_query, a0_answer, reasoning)
@@ -291,6 +367,97 @@ class GraphRAGOrchestrator:
         except Exception:
             logger.exception("Af validation stage failed")
             return a0_answer
+
+    async def _generate_general_answer(self, query: str) -> str:
+        """
+        Generate a normal conversational response when KG-specific extraction
+        does not find a disease entity. This keeps UX natural for greetings and
+        generic questions while reserving graph reasoning for biomedical cases.
+        """
+        system_prompt = (
+            "You are PRO-MedGraph, a helpful assistant.\n"
+            "Respond naturally and briefly to general user messages.\n"
+            "If the user asks a medical question without specific disease details,\n"
+            "ask a clarifying follow-up and avoid definitive medical claims."
+        )
+        user_prompt = f"User message:\n{query}"
+
+        try:
+            logger.info("Calling general-response LLM model=%s", self._a0_model)
+            return await self._llm_service.generate_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.3,
+                model=self._a0_model,
+            )
+        except Exception:
+            logger.exception("General response generation failed")
+            return (
+                "Hello! I’m PRO-MedGraph. I can help with biomedical questions. "
+                "If you share a disease or treatment topic, I can provide a graph-grounded answer."
+            )
+
+    @staticmethod
+    def _is_general_query(query: str) -> bool:
+        """
+        Detect lightweight conversational messages that should not trigger
+        biomedical KG retrieval.
+        """
+        normalized = query.strip().lower()
+        if not normalized:
+            return True
+
+        # Single short token (e.g., "hi", "hello", "thanks") is general chat.
+        tokens = normalized.split()
+        if len(tokens) == 1 and len(tokens[0]) <= 8:
+            if _GENERAL_QUERY_PATTERN.match(normalized):
+                return True
+
+        return bool(_GENERAL_QUERY_PATTERN.match(normalized))
+
+    @staticmethod
+    def _is_ingredient_query(query: str) -> bool:
+        """Detect ingredient-focused user intents for deterministic KG responses."""
+        return bool(_INGREDIENT_QUERY_PATTERN.search(query or ""))
+
+    def _build_ingredient_answer(self, reasoning: dict, disease_name: str) -> str | None:
+        """Build a direct ingredient list answer from graph_service + reasoning data."""
+        if not isinstance(reasoning, dict):
+            return None
+
+        ingredients = reasoning.get("Ingredients", [])
+        if not isinstance(ingredients, list):
+            ingredients = []
+
+        # Prefer complete direct disease->ingredient retrieval from graph_service,
+        # then merge with reasoning ingredients as a defensive fallback.
+        direct_rows = self._ingredient_fetcher(disease_name)
+        direct_names: list[str] = []
+        for item in direct_rows:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if isinstance(name, str) and name.strip():
+                direct_names.append(name.strip())
+
+        reasoning_names: list[str] = []
+        for item in ingredients:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if isinstance(name, str) and name.strip():
+                reasoning_names.append(name.strip())
+
+        # Preserve order while removing duplicates (direct query first for completeness).
+        deduped_names = list(dict.fromkeys([*direct_names, *reasoning_names]))
+        if not deduped_names:
+            return None
+
+        bullet_lines = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(deduped_names[:25]))
+        return (
+            f"Based on the knowledge graph, the ingredients associated with {disease_name} are:\n\n"
+            f"{bullet_lines}"
+        )
 
     @staticmethod
     def _compute_evidence_strength(reasoning: dict) -> str:

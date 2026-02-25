@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 ENTITY_KEYS = ("disease", "ingredient", "drug")
 FUZZY_CONFIDENCE_THRESHOLD = 0.75
+MIN_FUZZY_CHUNK_CHARS = 4
 
 
 @dataclass
@@ -65,6 +66,32 @@ def _extract_json_object(raw_text: str) -> dict | None:
     match = re.search(r"\{[\s\S]*\}", raw_text)
     if not match:
         return None
+
+
+def _is_low_signal_query(query: str) -> bool:
+    """
+    Detect short conversational inputs where fuzzy biomedical matching is unsafe.
+    Example: hi, hello, ok, thanks.
+    """
+    normalized = _normalize(query)
+    if not normalized:
+        return True
+
+    tokens = normalized.split()
+    if len(tokens) == 1 and len(tokens[0]) < MIN_FUZZY_CHUNK_CHARS:
+        return True
+
+    common_general = {
+        "hi",
+        "hello",
+        "hey",
+        "thanks",
+        "thank you",
+        "ok",
+        "okay",
+        "yo",
+    }
+    return normalized in common_general
 
     try:
         parsed = json.loads(match.group(0))
@@ -208,7 +235,10 @@ def _generate_query_ngrams(query: str, max_ngram: int = 5) -> list[str]:
     chunks: list[str] = []
     for size in range(1, min(max_ngram, len(tokens)) + 1):
         for start in range(0, len(tokens) - size + 1):
-            chunks.append(" ".join(tokens[start : start + size]))
+            chunk = " ".join(tokens[start : start + size])
+            if len(chunk) < MIN_FUZZY_CHUNK_CHARS:
+                continue
+            chunks.append(chunk)
 
     # Longer chunks first often produce better biomedical name matching.
     chunks.sort(key=len, reverse=True)
@@ -220,6 +250,9 @@ def _best_fuzzy_match(query: str, candidates: list[str]) -> _EntityResult:
         return _EntityResult(value=None, confidence=0.0)
 
     normalized_query = _normalize(query)
+    if len(normalized_query) < MIN_FUZZY_CHUNK_CHARS:
+        return _EntityResult(value=None, confidence=0.0)
+
     candidate_map = {_normalize(name): name for name in candidates}
     normalized_candidates = list(candidate_map.keys())
 
@@ -274,7 +307,10 @@ def extract_entities(query: str) -> dict:
     3) Return final structured entity JSON.
     """
     llm_results = _extract_entities_llm_with_confidence(query)
-    fuzzy_results = _extract_entities_fuzzy_with_confidence(query)
+    use_fuzzy_fallback = not _is_low_signal_query(query)
+    fuzzy_results = _extract_entities_fuzzy_with_confidence(query) if use_fuzzy_fallback else {
+        key: _EntityResult(value=None, confidence=0.0) for key in ENTITY_KEYS
+    }
 
     final_entities: dict[str, str | None] = {}
     for key in ENTITY_KEYS:
@@ -285,7 +321,7 @@ def extract_entities(query: str) -> dict:
             continue
 
         fuzzy_entity = fuzzy_results[key]
-        if fuzzy_entity.value is not None:
+        if fuzzy_entity.value is not None and use_fuzzy_fallback:
             final_entities[key] = fuzzy_entity.value
             logger.info(
                 "entity=%s method=FUZZY value=%s confidence=%.2f",
@@ -295,7 +331,12 @@ def extract_entities(query: str) -> dict:
             )
         else:
             final_entities[key] = llm_entity.value
-            logger.info("entity=%s method=NONE value=None", key)
+            logger.info(
+                "entity=%s method=%s value=%s",
+                key,
+                "LLM_LOW_CONFIDENCE_NO_FUZZY" if not use_fuzzy_fallback else "NONE",
+                llm_entity.value,
+            )
 
     return {
         "disease": final_entities.get("disease"),
