@@ -84,36 +84,72 @@ class GraphRAGOrchestrator:
             return self._fallback_response("Empty query")
 
         try:
-            entities = self._extract_entities(clean_query)
-            disease = entities.get("disease")
-            if not disease:
-                logger.warning("Entity extraction returned no disease for query")
-                return self._fallback_response("Disease entity not found")
-
-            subgraph = self._retrieve_graph(disease)
-            reasoning = self._build_reasoning(subgraph=subgraph, disease=disease)
-
-            # Step-level structured logging for operational observability.
-            graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
-            logger.info("Reasoning built: graph_paths_used=%s", graph_paths_used)
-
-            a0_answer = await self._generate_a0_answer(clean_query, reasoning)
-            af_answer = await self._validate_answer(clean_query, a0_answer, reasoning)
-
-            evidence_strength = self._compute_evidence_strength(reasoning)
-            confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
-
-            logger.info("Pipeline completed: evidence_strength=%s graph_paths_used=%s", evidence_strength, graph_paths_used)
-
-            return {
-                "final_answer": af_answer,
-                "evidence_strength": evidence_strength,
-                "graph_paths_used": graph_paths_used,
-                "confidence_score": confidence_score,
-            }
+            context = await self.process_user_query_with_context_async(clean_query)
+            return context.get("output", self._fallback_response("Missing orchestrator output"))
         except Exception:
             logger.exception("Orchestrator pipeline failed")
             return self._fallback_response("Pipeline failure")
+
+    async def process_user_query_with_context_async(self, query: str) -> dict:
+        """
+        Extended async pipeline result for integrations that need structured
+        intermediate data (e.g., safety post-processing using reasoning).
+        """
+        clean_query = (query or "").strip()
+        if not clean_query:
+            fallback = self._fallback_response("Empty query")
+            return {
+                "query": clean_query,
+                "entities": {"disease": None, "ingredient": None, "drug": None},
+                "reasoning": {},
+                "a0_answer": "",
+                "af_answer": fallback["final_answer"],
+                "output": fallback,
+            }
+
+        entities = self._extract_entities(clean_query)
+        disease = entities.get("disease")
+        if not disease:
+            logger.warning("Entity extraction returned no disease for query")
+            fallback = self._fallback_response("Disease entity not found")
+            return {
+                "query": clean_query,
+                "entities": entities,
+                "reasoning": {},
+                "a0_answer": "",
+                "af_answer": fallback["final_answer"],
+                "output": fallback,
+            }
+
+        subgraph = self._retrieve_graph(disease)
+        reasoning = self._build_reasoning(subgraph=subgraph, disease=disease)
+
+        # Step-level structured logging for operational observability.
+        graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
+        logger.info("Reasoning built: graph_paths_used=%s", graph_paths_used)
+
+        a0_answer = await self._generate_a0_answer(clean_query, reasoning)
+        af_answer = await self._validate_answer(clean_query, a0_answer, reasoning)
+
+        evidence_strength = self._compute_evidence_strength(reasoning)
+        confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
+
+        logger.info("Pipeline completed: evidence_strength=%s graph_paths_used=%s", evidence_strength, graph_paths_used)
+
+        output = {
+            "final_answer": af_answer,
+            "evidence_strength": evidence_strength,
+            "graph_paths_used": graph_paths_used,
+            "confidence_score": confidence_score,
+        }
+        return {
+            "query": clean_query,
+            "entities": entities,
+            "reasoning": reasoning,
+            "a0_answer": a0_answer,
+            "af_answer": af_answer,
+            "output": output,
+        }
 
     def _extract_entities(self, query: str) -> dict:
         """Stage 1: Extract entities from user query using hybrid extractor."""
@@ -331,8 +367,14 @@ async def process_user_query_async(query: str) -> dict:
     return await _get_default_orchestrator().process_user_query_async(query)
 
 
+async def process_user_query_with_context_async(query: str) -> dict:
+    """Async variant returning intermediate reasoning context for post-processing layers."""
+    return await _get_default_orchestrator().process_user_query_with_context_async(query)
+
+
 __all__ = [
     "GraphRAGOrchestrator",
     "process_user_query",
     "process_user_query_async",
+    "process_user_query_with_context_async",
 ]

@@ -2,13 +2,11 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1)
-    session_id: str | None = None
+    query: str = Field(..., min_length=1)
 
 
 class ChatResponse(BaseModel):
-    reply: str
-    provenance: list[str] = []
-    generated_cypher: str | None = None
-    kg_result_count: int = 0
-    judge_score: int | None = None
+    final_answer: str
+    evidence_strength: str
+    graph_paths_used: int
+    confidence_score: float | None = None
