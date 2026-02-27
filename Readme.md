@@ -78,11 +78,31 @@ VITE_USE_PLACEHOLDER_BOT=false
 
 ### 3) Backend
 
+#### macOS / Linux
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
+
+#### Windows (Command Prompt)
+
+```cmd
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r backend\requirements.txt
+```
+
+#### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+```
+
+> **Note (Windows PowerShell):** If you get an execution policy error, run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` first.
 
 Create/update `backend/.env`:
 
@@ -178,7 +198,7 @@ npm run dev:backend
 
 ### Theme not changing
 
-1. Hard refresh browser (`Cmd+Shift+R`).
+1. Hard refresh browser (`Cmd+Shift+R` on macOS, `Ctrl+Shift+R` on Windows/Linux).
 2. Check that `<html>` class toggles between `light` and `dark` in devtools.
 3. Clear site data/localStorage if stale values exist.
 

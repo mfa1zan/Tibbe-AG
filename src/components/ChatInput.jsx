@@ -1,6 +1,16 @@
+import { useRef, useEffect } from 'react';
 import './ChatInput.css';
 
 function ChatInput({ value, onChange, onSend, disabled, error }) {
+  const inputRef = useRef(null);
+
+  // Auto-focus the input field whenever it becomes enabled or value is cleared
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [disabled, value]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
     onSend(value);
@@ -11,13 +21,13 @@ function ChatInput({ value, onChange, onSend, disabled, error }) {
       <div className="chat-input-container">
         <form onSubmit={handleSubmit} className="chat-input-form">
           <input
+            ref={inputRef}
             type="text"
             aria-label="Type your biomedical question"
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder="Type your biomedical question..."
             className="chat-input-field"
-            disabled={disabled}
           />
           <button
             type="submit"

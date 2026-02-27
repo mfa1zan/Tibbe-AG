@@ -38,6 +38,9 @@ function AppShell() {
       setError('');
       setIsLoading(true);
 
+      // Clear input immediately so the field is empty and ready for next message
+      setInputValue('');
+
       const optimisticMessage = createMessage('user', messageText.trim());
       setMessages((current) => [...current, optimisticMessage]);
 
@@ -58,7 +61,6 @@ function AppShell() {
             safety
           })
         ]);
-        setInputValue('');
       } catch (error) {
         setMessages((current) => current.filter((item) => item.id !== optimisticMessage.id));
         setError(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
