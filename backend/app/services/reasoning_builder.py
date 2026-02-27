@@ -203,16 +203,27 @@ def _build_biochemical_mappings(subgraph: dict[str, Any]) -> list[dict[str, Any]
 
 def build_graph_reasoning(subgraph: dict) -> dict:
     """
-    Convert raw `graph_service.get_disease_subgraph()` output into a clean,
-    orchestrator-ready reasoning dictionary for LLM input.
-
+    Convert raw graph service output into a clean, orchestrator-ready reasoning
+    dictionary for LLM input. Supports multiple primary entity types:
+    - Disease-centric subgraphs (from get_disease_subgraph)
+    - Ingredient-centric subgraphs (from get_ingredient_subgraph)
+    - Drug-centric subgraphs (from get_drug_subgraph)
+    
     This function intentionally exposes only structured dictionaries/lists and
     never returns raw Neo4j records or Cypher fragments.
     """
     safe_subgraph = subgraph if isinstance(subgraph, dict) else {}
 
+    # Extract all possible entity types (presence varies by query intent)
     disease = _format_disease(safe_subgraph.get("Disease"))
+    diseases = [_format_disease(item) for item in _ensure_list(safe_subgraph.get("Diseases")) if isinstance(item, dict)]
+    
+    ingredient = _format_named_node(safe_subgraph.get("Ingredient"))
     ingredients = [_format_named_node(item) for item in _ensure_list(safe_subgraph.get("Ingredients")) if isinstance(item, dict)]
+    
+    drug = _format_named_node(safe_subgraph.get("Drug"))
+    drugs = [_format_named_node(item) for item in _ensure_list(safe_subgraph.get("Drugs")) if isinstance(item, dict)]
+    
     compounds = [
         _format_named_node(item)
         for item in _ensure_list(safe_subgraph.get("ChemicalCompounds"))
@@ -223,18 +234,30 @@ def build_graph_reasoning(subgraph: dict) -> dict:
         for item in _ensure_list(safe_subgraph.get("DrugChemicalCompounds"))
         if isinstance(item, dict)
     ]
-    drugs = [_format_named_node(item) for item in _ensure_list(safe_subgraph.get("Drugs")) if isinstance(item, dict)]
     hadith_refs = _extract_hadith_references(safe_subgraph)
 
+    # Build unified reasoning structure that works for all entity types
     reasoning = {
+        # Disease-centric fields (may be None if query was ingredient/drug-focused)
         "Disease": disease,
+        "Diseases": diseases,
+        
+        # Ingredient-centric fields
+        "Ingredient": ingredient,
         "Ingredients": ingredients,
+        
+        # Drug-centric fields
+        "Drug": drug,
+        "Drugs": drugs,
+        
+        # Common fields across all query types
         "ChemicalCompounds": compounds,
         "DrugChemicalCompounds": drug_compounds,
-        "Drugs": drugs,
         "HadithReferences": hadith_refs,
+        
         # Path-level biochemical links used by the orchestrator for grounded generation.
         "BiochemicalMappings": _build_biochemical_mappings(safe_subgraph),
+        
         # Optional metadata for robust downstream handling in A0 prompts.
         "meta": {
             "has_error": bool(safe_subgraph.get("error")),

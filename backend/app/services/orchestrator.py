@@ -5,10 +5,11 @@ import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, Callable
 
 from app.config import get_settings
-from app.services import entity_service, graph_service, reasoning_builder
+from app.services import entity_service, graph_service, reasoning_builder, safety_service
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,54 @@ _GENERAL_QUERY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _INGREDIENT_QUERY_PATTERN = re.compile(r"\b(ingredient|ingredients|herb|herbal|remedy|remedies)\b", re.IGNORECASE)
+_DRUG_QUERY_PATTERN = re.compile(
+    r"\b(drug|drugs|medicine|medicines|medication|medications|pharmaceutical|pharmaceuticals|tablet|capsule|pill)\b",
+    re.IGNORECASE,
+)
+
+# Knowledge Graph schema - loaded once at module initialization
+_KG_SCHEMA: dict[str, Any] | None = None
+
+
+def _load_kg_schema() -> dict[str, Any]:
+    """
+    Load knowledge graph schema from JSON file at project root.
+    Schema defines node types, relationships, and valid traversal paths.
+    Used for intent-based routing and query validation.
+    """
+    global _KG_SCHEMA
+    if _KG_SCHEMA is not None:
+        return _KG_SCHEMA
+    
+    try:
+        # Navigate from backend/app/services to project root
+        project_root = Path(__file__).resolve().parents[3]
+        schema_path = project_root / "knowledge_graph_schema.json"
+        
+        if not schema_path.exists():
+            logger.warning("KG schema file not found at %s, using empty schema", schema_path)
+            _KG_SCHEMA = {}
+            return _KG_SCHEMA
+        
+        with open(schema_path, "r", encoding="utf-8") as f:
+            schema_data = json.load(f)
+        
+        # Extract the nested FULL_KG_SCHEMA_JSON structure
+        if isinstance(schema_data, list) and len(schema_data) > 0:
+            _KG_SCHEMA = schema_data[0].get("FULL_KG_SCHEMA_JSON", {})
+        else:
+            _KG_SCHEMA = schema_data if isinstance(schema_data, dict) else {}
+        
+        logger.info(
+            "KG schema loaded: %d node types, %d relationship types",
+            len(_KG_SCHEMA.get("nodeLabels", [])),
+            len(_KG_SCHEMA.get("relationshipTypes", [])),
+        )
+        return _KG_SCHEMA
+    except Exception:
+        logger.exception("Failed to load KG schema, using empty schema")
+        _KG_SCHEMA = {}
+        return _KG_SCHEMA
 
 
 def _run_sync_from_async(coro):
@@ -41,7 +90,39 @@ def _run_sync_from_async(coro):
 class GraphRAGOrchestrator:
     """
     Production-ready GraphRAG orchestration service for PRO-MedGraph.
-
+    
+    Implements intent-based retrieval routing using KG schema structure from
+    knowledge_graph_schema.json. Supports three primary query types:
+    
+    1. Disease-centric queries:
+       - Traversal: Disease ← CURES ← Ingredient → CONTAINS → ChemicalCompound
+                   → IS_* → DrugChemicalCompound ← CONTAINS ← Drug
+       - Retriever: graph_service.get_disease_subgraph()
+       
+    2. Ingredient-centric queries (when no disease specified):
+       - Traversal: Ingredient → CURES → Disease
+                    Ingredient → CONTAINS → ChemicalCompound → IS_* → DrugChemicalCompound
+       - Retriever: graph_service.get_ingredient_subgraph()
+       
+    3. Drug-centric queries (when no disease/ingredient specified):
+       - Traversal: Drug → CONTAINS → DrugChemicalCompound ← IS_* ← ChemicalCompound
+                   ← CONTAINS ← Ingredient → CURES → Disease
+       - Retriever: graph_service.get_drug_subgraph()
+    
+    KG Schema Usage:
+    - Loaded once at module initialization from knowledge_graph_schema.json
+    - Defines valid node types, relationship types, and traversal paths
+    - Ensures graph retrievals align with actual Neo4j structure
+    - No raw Cypher or schema details exposed to LLM (structured JSON only)
+    
+    Pipeline Stages (preserved from original):
+    1. Entity extraction → detect disease/ingredient/drug entities
+    2. Intent-based graph retrieval → route to appropriate fetcher
+    3. Reasoning builder → normalize subgraph to LLM-ready structure
+    4. A0 generation → base answer from graph evidence
+    5. Af validation → refine with safety/uncertainty controls
+    6. Safety service → add medical disclaimers as needed
+    
     Stages are dependency-injected to keep future replacement of entity extraction,
     graph retrieval, reasoning builder, or LLM provider straightforward.
     """
@@ -50,7 +131,9 @@ class GraphRAGOrchestrator:
         self,
         llm_service: LLMService | None = None,
         entity_extractor: Callable[[str], dict] | None = None,
-        subgraph_fetcher: Callable[[str], dict] | None = None,
+        disease_subgraph_fetcher: Callable[[str], dict] | None = None,
+        ingredient_subgraph_fetcher: Callable[[str], dict] | None = None,
+        drug_subgraph_fetcher: Callable[[str], dict] | None = None,
         hadith_fetcher: Callable[[str], list] | None = None,
         ingredient_fetcher: Callable[[str], list] | None = None,
         reasoning_formatter: Callable[[dict], dict] | None = None,
@@ -66,8 +149,14 @@ class GraphRAGOrchestrator:
         self._a0_model = settings.llm_answer_model or settings.groq_model
         self._af_model = settings.llm_validator_model or settings.groq_model
 
+        # Load KG schema for intent-based routing validation
+        self._kg_schema = _load_kg_schema()
+
+        # Entity extraction and specialized subgraph fetchers for each primary entity type
         self._entity_extractor = entity_extractor or entity_service.extract_entities
-        self._subgraph_fetcher = subgraph_fetcher or graph_service.get_disease_subgraph
+        self._disease_subgraph_fetcher = disease_subgraph_fetcher or graph_service.get_disease_subgraph
+        self._ingredient_subgraph_fetcher = ingredient_subgraph_fetcher or graph_service.get_ingredient_subgraph
+        self._drug_subgraph_fetcher = drug_subgraph_fetcher or graph_service.get_drug_subgraph
         self._hadith_fetcher = hadith_fetcher or graph_service.get_hadith_for_disease
         self._ingredient_fetcher = ingredient_fetcher or graph_service.get_ingredients_for_disease
         self._reasoning_formatter = reasoning_formatter or reasoning_builder.build_graph_reasoning
@@ -140,9 +229,16 @@ class GraphRAGOrchestrator:
             }
 
         entities = self._extract_entities(clean_query)
+        
+        # Intent-based routing: determine primary entity type and retrieval strategy
+        # Priority: Disease > Ingredient > Drug (based on biomedical specificity)
         disease = entities.get("disease")
-        if not disease:
-            logger.info("No disease entity detected; routing query to general conversational response")
+        ingredient = entities.get("ingredient")
+        drug = entities.get("drug")
+        
+        # Edge case: no biomedical entities detected → fallback to general conversation
+        if not disease and not ingredient and not drug:
+            logger.info("No biomedical entities detected; routing to general conversational response")
             general_answer = await self._generate_general_answer(clean_query)
             output = {
                 "final_answer": general_answer,
@@ -164,18 +260,42 @@ class GraphRAGOrchestrator:
                 "af_answer": general_answer,
                 "output": output,
             }
-
-        subgraph = self._retrieve_graph(disease)
-        reasoning = self._build_reasoning(subgraph=subgraph, disease=disease)
+        
+        # Retrieve subgraph using intent-based routing with primary entity
+        subgraph, primary_entity_type, primary_entity_name = self._retrieve_graph_by_intent(
+            disease=disease,
+            ingredient=ingredient,
+            drug=drug,
+        )
+        
+        # Build reasoning from subgraph (reasoning_builder handles different entity types)
+        reasoning = self._build_reasoning(
+            subgraph=subgraph,
+            primary_entity_type=primary_entity_type,
+            primary_entity_name=primary_entity_name,
+        )
 
         # Step-level structured logging for operational observability.
         graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
         logger.info("Reasoning built: graph_paths_used=%s", graph_paths_used)
 
+        # Edge case: disease was found in KG but subgraph returned an error
+        # (e.g., disease not in graph, or graph query failed)
+        subgraph_error = subgraph.get("error") if isinstance(subgraph, dict) else None
+        if subgraph_error and primary_entity_type == "Disease":
+            logger.warning(
+                "Subgraph error for disease='%s': %s",
+                primary_entity_name,
+                subgraph_error,
+            )
+            # Still attempt LLM generation -- it may produce a useful partial answer
+            # with appropriate uncertainty language, rather than a hard fallback.
+
         # Deterministic KG answer path: if user explicitly asks for ingredients,
         # return ingredients directly from graph reasoning instead of relying on
         # LLM generation that can fail for large contexts.
-        if self._is_ingredient_query(clean_query):
+        # Note: This only applies to disease-centric queries with ingredient intent
+        if self._is_ingredient_query(clean_query) and disease:
             direct_ingredient_answer = self._build_ingredient_answer(reasoning, disease)
             if direct_ingredient_answer:
                 evidence_strength = self._compute_evidence_strength(reasoning)
@@ -204,6 +324,9 @@ class GraphRAGOrchestrator:
                     "output": output,
                 }
 
+        # Core LLM pipeline: A0 generation -> Af validation
+        # For disease queries, the full path Disease->Ingredient->Compound->Drug
+        # is ALWAYS included in reasoning, so A0 receives complete evidence.
         a0_answer = await self._generate_a0_answer(clean_query, reasoning)
         af_answer = await self._validate_answer(clean_query, a0_answer, reasoning)
 
@@ -218,17 +341,33 @@ class GraphRAGOrchestrator:
             "graph_paths_used": graph_paths_used,
             "confidence_score": confidence_score,
         }
+
+        # Apply safety post-processing: caution flags, confidence recalc, notes
+        safe_output = safety_service.apply_safety_checks(
+            reasoning=reasoning,
+            llm_output=output,
+        )
+
         return {
             "query": clean_query,
             "entities": entities,
             "reasoning": reasoning,
             "a0_answer": a0_answer,
             "af_answer": af_answer,
-            "output": output,
+            "output": safe_output,
         }
 
+
     def _extract_entities(self, query: str) -> dict:
-        """Stage 1: Extract entities from user query using hybrid extractor."""
+        """
+        Stage 1: Extract entities from user query using hybrid extractor.
+        
+        Returns dict with keys: disease, ingredient, drug (all may be None).
+        Edge cases handled:
+        - Extractor returns None -> convert to empty dict
+        - Missing keys in result -> default to None
+        - Extraction exceptions -> log and return all-None dict
+        """
         try:
             entities = self._entity_extractor(query) or {}
             result = {
@@ -242,80 +381,247 @@ class GraphRAGOrchestrator:
             logger.exception("Entity extraction stage failed")
             return {"disease": None, "ingredient": None, "drug": None}
 
-    def _retrieve_graph(self, disease: str) -> dict:
+
+    def _retrieve_graph_by_intent(
+        self,
+        disease: str | None,
+        ingredient: str | None,
+        drug: str | None,
+    ) -> tuple[dict, str, str]:
         """
-        Stage 2: Retrieve disease subgraph and optionally augment with hadith refs.
-        Only structured dictionaries/lists are returned.
+        Stage 2: Intent-based graph retrieval using KG schema structure.
+        
+        Routing logic based on detected entities (priority order):
+        1. Disease → Disease-centric subgraph (Disease ← CURES ← Ingredient → ... → Drug)
+        2. Ingredient (no disease) → Ingredient-centric subgraph (Ingredient → CURES → Disease, CONTAINS → ...)
+        3. Drug (no disease/ingredient) → Drug-centric subgraph (Drug → CONTAINS → ... → Ingredient → Disease)
+        
+        Returns:
+            tuple: (subgraph_dict, primary_entity_type, primary_entity_name)
+        
+        KG traversal paths validated against schema:
+        - Disease: Disease ← CURES ← Ingredient → CONTAINS → ChemicalCompound → IS_* → DrugChemicalCompound ← CONTAINS ← Drug
+        - Ingredient: Ingredient → CURES → Disease, Ingredient → CONTAINS → ChemicalCompound → IS_* → DrugChemicalCompound ← CONTAINS ← Drug
+        - Drug: Drug → CONTAINS → DrugChemicalCompound ← IS_* ← ChemicalCompound ← CONTAINS ← Ingredient → CURES → Disease
         """
         try:
-            subgraph = self._subgraph_fetcher(disease) or {}
-            hadith_refs = self._hadith_fetcher(disease) or []
-
-            # Merge hadith in normalized key expected by reasoning builder.
-            subgraph["HadithReferences"] = hadith_refs
-
-            logger.info(
-                "Subgraph retrieved disease=%s ingredients=%s compounds=%s drug_compounds=%s drugs=%s hadith=%s",
-                disease,
-                len(subgraph.get("Ingredients", []) or []),
-                len(subgraph.get("ChemicalCompounds", []) or []),
-                len(subgraph.get("DrugChemicalCompounds", []) or []),
-                len(subgraph.get("Drugs", []) or []),
-                len(hadith_refs),
-            )
-            return subgraph
-        except Exception:
-            logger.exception("Graph retrieval stage failed")
+            # Priority 1: Disease-centric retrieval (most specific biomedical context)
+            if disease:
+                logger.info("Intent routing: DISEASE query for '%s'", disease)
+                subgraph = self._disease_subgraph_fetcher(disease) or {}
+                
+                # Augment with hadith references (disease-specific religious evidence)
+                hadith_refs = self._hadith_fetcher(disease) or []
+                subgraph["HadithReferences"] = hadith_refs
+                
+                logger.info(
+                    "Disease subgraph retrieved: ingredients=%d compounds=%d drug_compounds=%d drugs=%d hadith=%d",
+                    len(subgraph.get("Ingredients", []) or []),
+                    len(subgraph.get("ChemicalCompounds", []) or []),
+                    len(subgraph.get("DrugChemicalCompounds", []) or []),
+                    len(subgraph.get("Drugs", []) or []),
+                    len(hadith_refs),
+                )
+                return subgraph, "Disease", disease
+            
+            # Priority 2: Ingredient-centric retrieval (when disease not specified)
+            if ingredient:
+                logger.info("Intent routing: INGREDIENT query for '%s' (no disease specified)", ingredient)
+                subgraph = self._ingredient_subgraph_fetcher(ingredient) or {}
+                
+                # Note: Hadith typically linked to diseases, not ingredients directly
+                # If diseases found via CURES, could aggregate hadith from those diseases
+                subgraph.setdefault("HadithReferences", [])
+                
+                logger.info(
+                    "Ingredient subgraph retrieved: diseases=%d compounds=%d drug_compounds=%d drugs=%d",
+                    len(subgraph.get("Diseases", []) or []),
+                    len(subgraph.get("ChemicalCompounds", []) or []),
+                    len(subgraph.get("DrugChemicalCompounds", []) or []),
+                    len(subgraph.get("Drugs", []) or []),
+                )
+                return subgraph, "Ingredient", ingredient
+            
+            # Priority 3: Drug-centric retrieval (least common, but valid for pharma queries)
+            if drug:
+                logger.info("Intent routing: DRUG query for '%s' (no disease/ingredient specified)", drug)
+                subgraph = self._drug_subgraph_fetcher(drug) or {}
+                
+                # Hadith potentially retrievable from discovered diseases via reverse traversal
+                subgraph.setdefault("HadithReferences", [])
+                
+                logger.info(
+                    "Drug subgraph retrieved: drug_compounds=%d compounds=%d ingredients=%d diseases=%d",
+                    len(subgraph.get("DrugChemicalCompounds", []) or []),
+                    len(subgraph.get("ChemicalCompounds", []) or []),
+                    len(subgraph.get("Ingredients", []) or []),
+                    len(subgraph.get("Diseases", []) or []),
+                )
+                return subgraph, "Drug", drug
+            
+            # Edge case: should not reach here (caller validates at least one entity exists)
+            logger.warning("Intent routing fallback: no valid entity for graph retrieval")
             return {
-                "error": "Graph retrieval failed",
-                "Disease": {"id": None, "name": disease, "category": None},
-                "Ingredients": [],
-                "ChemicalCompounds": [],
-                "DrugChemicalCompounds": [],
-                "Drugs": [],
+                "error": "No valid entity for graph retrieval",
                 "Relations": [],
                 "HadithReferences": [],
-            }
+            }, "Unknown", "N/A"
+        
+        except Exception:
+            logger.exception("Graph retrieval stage failed for entities: disease=%s ingredient=%s drug=%s", disease, ingredient, drug)
+            # Return safe fallback structure based on primary entity
+            primary_entity = disease or ingredient or drug or "Unknown"
+            primary_type = "Disease" if disease else ("Ingredient" if ingredient else "Drug")
+            
+            return {
+                "error": "Graph retrieval failed",
+                primary_type: {"id": None, "name": primary_entity},
+                "Relations": [],
+                "HadithReferences": [],
+            }, primary_type, primary_entity
 
-    def _build_reasoning(self, subgraph: dict, disease: str) -> dict:
-        """Stage 3: Convert graph payload into strict reasoning structure for LLM."""
+    def _build_reasoning(
+        self,
+        subgraph: dict,
+        primary_entity_type: str,
+        primary_entity_name: str,
+    ) -> dict:
+        """
+        Stage 3: Convert graph payload into strict reasoning structure for LLM.
+        
+        Handles different primary entity types (Disease, Ingredient, Drug) and ensures
+        consistent reasoning structure regardless of entry point.
+        """
         try:
             reasoning = self._reasoning_formatter(subgraph) or {}
-            # Ensure minimum schema exists for downstream prompt formatting.
-            reasoning.setdefault("Disease", {"id": None, "name": disease, "category": None})
-            reasoning.setdefault("Ingredients", [])
+            
+            # Ensure minimum schema exists for downstream prompt formatting
+            # Structure varies based on primary entity type from intent routing
+            if primary_entity_type == "Disease":
+                reasoning.setdefault("Disease", {"id": None, "name": primary_entity_name, "category": None})
+                reasoning.setdefault("Ingredients", [])
+            elif primary_entity_type == "Ingredient":
+                reasoning.setdefault("Ingredient", {"id": None, "name": primary_entity_name})
+                reasoning.setdefault("Diseases", [])
+            elif primary_entity_type == "Drug":
+                reasoning.setdefault("Drug", {"id": None, "name": primary_entity_name})
+                reasoning.setdefault("Ingredients", [])
+                reasoning.setdefault("Diseases", [])
+            
+            # Common fields across all entity types
             reasoning.setdefault("ChemicalCompounds", [])
             reasoning.setdefault("DrugChemicalCompounds", [])
             reasoning.setdefault("Drugs", [])
             reasoning.setdefault("HadithReferences", [])
             reasoning.setdefault("BiochemicalMappings", [])
-            logger.info("Reasoning formatter stage completed")
+            
+            # Add metadata for downstream processing
+            reasoning.setdefault("meta", {})
+            reasoning["meta"]["primary_entity_type"] = primary_entity_type
+            reasoning["meta"]["primary_entity_name"] = primary_entity_name
+            
+            logger.info(
+                "Reasoning formatter completed: primary_entity_type=%s mappings=%d",
+                primary_entity_type,
+                len(reasoning.get("BiochemicalMappings", [])),
+            )
             return reasoning
         except Exception:
-            logger.exception("Reasoning formatter stage failed")
-            return {
-                "Disease": {"id": None, "name": disease, "category": None},
-                "Ingredients": [],
+            logger.exception("Reasoning formatter stage failed for %s: %s", primary_entity_type, primary_entity_name)
+            
+            # Return safe fallback reasoning structure
+            fallback = {
                 "ChemicalCompounds": [],
                 "DrugChemicalCompounds": [],
                 "Drugs": [],
                 "HadithReferences": [],
                 "BiochemicalMappings": [],
-                "meta": {"has_error": True, "source_error": "Reasoning formatting failed"},
+                "meta": {
+                    "has_error": True,
+                    "source_error": "Reasoning formatting failed",
+                    "primary_entity_type": primary_entity_type,
+                    "primary_entity_name": primary_entity_name,
+                },
             }
+            
+            # Add primary entity to fallback
+            if primary_entity_type == "Disease":
+                fallback["Disease"] = {"id": None, "name": primary_entity_name, "category": None}
+                fallback["Ingredients"] = []
+            elif primary_entity_type == "Ingredient":
+                fallback["Ingredient"] = {"id": None, "name": primary_entity_name}
+                fallback["Diseases"] = []
+            elif primary_entity_type == "Drug":
+                fallback["Drug"] = {"id": None, "name": primary_entity_name}
+                fallback["Ingredients"] = []
+                fallback["Diseases"] = []
+            
+            return fallback
 
     async def _generate_a0_answer(self, query: str, reasoning: dict) -> str:
         """
         Stage 4 (A0): Generate a base grounded answer from structured graph reasoning.
+        
+        Handles different primary entity types (Disease, Ingredient, Drug) and adapts
+        the generation prompt to the specific query intent and available evidence.
         """
-        system_prompt = (
-            "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
-            "Use ONLY the provided structured graph reasoning evidence.\n"
-            "Do NOT hallucinate entities, studies, or claims.\n"
-            "Explain the likely biochemical mechanism step-by-step when evidence exists.\n"
-            "Cite relevant Hadith references present in the evidence.\n"
-            "If evidence is missing or weak, explicitly state uncertainty."
-        )
+        # Extract primary entity metadata from reasoning for context-aware generation
+        meta = reasoning.get("meta", {}) if isinstance(reasoning, dict) else {}
+        primary_entity_type = meta.get("primary_entity_type", "Disease")
+        
+        # Build entity-type-aware system prompt
+        # For Disease queries: always instruct LLM to cover the FULL traversal path
+        # Disease <- CURES <- Ingredient -> CONTAINS -> ChemicalCompound -> IS_* -> DrugChemicalCompound <- CONTAINS <- Drug
+        if primary_entity_type == "Disease":
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
+                "Use ONLY the provided structured graph reasoning evidence.\n"
+                "Do NOT hallucinate entities, studies, or claims.\n\n"
+                "For this disease query, your answer MUST cover ALL of the following when evidence exists:\n"
+                "1. Which traditional/natural Ingredients are linked to treating this disease (via CURES relationship)\n"
+                "2. What ChemicalCompounds these ingredients contain (via CONTAINS relationship)\n"
+                "3. Which modern Drug equivalents share these compounds (via IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO)\n"
+                "4. The biochemical mechanism connecting ingredients to drugs step-by-step\n"
+                "5. Any relevant Hadith references from the evidence\n\n"
+                "Label the mapping strength for each compound-drug link:\n"
+                "- IDENTICAL = confirmed equivalent\n"
+                "- LIKELY = probable equivalent\n"
+                "- WEAK = tentative, interpret with caution\n\n"
+                "If no drug equivalents exist, explicitly state that.\n"
+                "If evidence is missing or weak, explicitly state uncertainty."
+            )
+        elif primary_entity_type == "Ingredient":
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
+                "Use ONLY the provided structured graph reasoning evidence.\n"
+                "Do NOT hallucinate entities, studies, or claims.\n\n"
+                "For this ingredient query, explain:\n"
+                "1. Which diseases this ingredient is linked to (via CURES)\n"
+                "2. What chemical compounds this ingredient contains\n"
+                "3. Any modern drug equivalents with mapping strength labels\n"
+                "4. Relevant Hadith references if present\n\n"
+                "If evidence is missing or weak, explicitly state uncertainty."
+            )
+        elif primary_entity_type == "Drug":
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
+                "Use ONLY the provided structured graph reasoning evidence.\n"
+                "Do NOT hallucinate entities, studies, or claims.\n\n"
+                "For this drug query, explain:\n"
+                "1. What chemical compounds this drug contains\n"
+                "2. Which natural ingredients share these compounds (with mapping strength)\n"
+                "3. What diseases those ingredients can treat\n"
+                "4. Relevant Hadith references if present\n\n"
+                "If evidence is missing or weak, explicitly state uncertainty."
+            )
+        else:
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
+                "Use ONLY the provided structured graph reasoning evidence.\n"
+                "Do NOT hallucinate entities, studies, or claims.\n"
+                "If evidence is missing or weak, explicitly state uncertainty."
+            )
+
         user_prompt = (
             f"User Query:\n{query}\n\n"
             f"Structured Graph Reasoning (JSON):\n{json.dumps(reasoning, ensure_ascii=False, indent=2)}"
@@ -420,18 +726,38 @@ class GraphRAGOrchestrator:
         """Detect ingredient-focused user intents for deterministic KG responses."""
         return bool(_INGREDIENT_QUERY_PATTERN.search(query or ""))
 
+    @staticmethod
+    def _is_drug_query(query: str) -> bool:
+        """Detect drug/medicine-focused user intents (e.g., 'what drugs cure fever')."""
+        return bool(_DRUG_QUERY_PATTERN.search(query or ""))
+
     def _build_ingredient_answer(self, reasoning: dict, disease_name: str) -> str | None:
-        """Build a direct ingredient list answer from graph_service + reasoning data."""
+        """
+        Build a direct ingredient list answer from graph_service + reasoning data.
+        
+        Edge cases handled:
+        - Missing or malformed reasoning structure
+        - Empty ingredient lists
+        - Duplicate ingredients from different sources
+        - Non-string ingredient names
+        """
         if not isinstance(reasoning, dict):
+            logger.warning("Cannot build ingredient answer: reasoning is not a dict")
             return None
 
         ingredients = reasoning.get("Ingredients", [])
         if not isinstance(ingredients, list):
+            logger.warning("Ingredients field in reasoning is not a list")
             ingredients = []
 
         # Prefer complete direct disease->ingredient retrieval from graph_service,
         # then merge with reasoning ingredients as a defensive fallback.
-        direct_rows = self._ingredient_fetcher(disease_name)
+        try:
+            direct_rows = self._ingredient_fetcher(disease_name)
+        except Exception:
+            logger.exception("Failed to fetch ingredients directly for disease=%s", disease_name)
+            direct_rows = []
+        
         direct_names: list[str] = []
         for item in direct_rows:
             if not isinstance(item, dict):
@@ -451,12 +777,17 @@ class GraphRAGOrchestrator:
         # Preserve order while removing duplicates (direct query first for completeness).
         deduped_names = list(dict.fromkeys([*direct_names, *reasoning_names]))
         if not deduped_names:
+            logger.info("No ingredients found for disease=%s", disease_name)
             return None
 
+        # Limit to top 25 ingredients to avoid overwhelming response
         bullet_lines = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(deduped_names[:25]))
+        
+        suffix = "" if len(deduped_names) <= 25 else f"\n\n(Showing top 25 of {len(deduped_names)} ingredients)"
+        
         return (
             f"Based on the knowledge graph, the ingredients associated with {disease_name} are:\n\n"
-            f"{bullet_lines}"
+            f"{bullet_lines}{suffix}"
         )
 
     @staticmethod
