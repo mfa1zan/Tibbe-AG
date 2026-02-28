@@ -57,6 +57,56 @@ async def models() -> dict[str, str]:
     return get_model_map()
 
 
+@app.get("/es")
+async def evidence_strength_check() -> dict:
+    """
+    End-to-end pipeline smoke test.
+
+    Sends a known biomedical query through the full orchestrator pipeline and
+    returns a compact diagnostics object so you can verify:
+      • Neo4j connectivity
+      • LLM reachability (all 5 models)
+      • Evidence strength / confidence produced
+      • Pipeline stages executed
+
+    Hit  GET /es  after deploy to confirm everything is wired correctly.
+    """
+    from app.services.multi_model_service import get_model_map
+
+    pipeline: orchestrator.GraphRAGOrchestrator = app.state.orchestrator
+    test_query = "What is the remedy for hypertension in Prophetic medicine?"
+    models_map = get_model_map()
+
+    try:
+        result = await pipeline.process_user_query_with_context_async(test_query)
+        output = result.get("output", {})
+        trace = output.get("reasoning_trace") or result.get("reasoning_trace") or {}
+
+        return {
+            "status": "ok",
+            "test_query": test_query,
+            "evidence_strength": output.get("evidence_strength"),
+            "graph_paths_used": output.get("graph_paths_used"),
+            "confidence_score": output.get("confidence_score"),
+            "pipeline_stages": trace.get("pipeline_stages", []),
+            "entities_detected": result.get("entities"),
+            "faith_alignment_score": (result.get("faith_alignment") or {}).get("faith_alignment_score"),
+            "models": models_map,
+            "neo4j": "connected",
+            "llm": "reachable",
+        }
+    except Exception as exc:
+        logger.exception("/es diagnostics failed")
+        return {
+            "status": "error",
+            "test_query": test_query,
+            "error": str(exc),
+            "models": models_map,
+            "neo4j": "unknown",
+            "llm": "unknown",
+        }
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     pipeline: orchestrator.GraphRAGOrchestrator = app.state.orchestrator

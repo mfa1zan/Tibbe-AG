@@ -34,7 +34,7 @@ class LLMService:
 
         endpoint = f"{self._base_url}/chat/completions"
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(endpoint, json=payload, headers=headers)
             response.raise_for_status()
             body = response.json()

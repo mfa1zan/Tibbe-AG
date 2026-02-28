@@ -311,6 +311,12 @@ async def validate_draft(
                 "Validator LLM call failed (attempt %d/%d): %s",
                 attempt + 1, 1 + max_retries, exc,
             )
+            # Exponential backoff (helps with 429 rate-limit errors).
+            if attempt < max_retries:
+                import asyncio as _aio
+                backoff = 2 ** attempt  # 1 s, 2 s, 4 s …
+                logger.info("Validator retry backoff: sleeping %d s", backoff)
+                await _aio.sleep(backoff)
             continue
 
         parsed = _extract_json(raw_response)

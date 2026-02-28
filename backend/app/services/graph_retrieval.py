@@ -415,21 +415,28 @@ def retrieve_graph(
     * Query execution time and node/edge counts are logged at INFO level.
     """
     if not cypher_query or cypher_query.strip().startswith("//"):
-        # No-op queries (e.g. "general" intent from Step 3).
-        logger.info("Skipping graph retrieval — no executable Cypher")
-        return {
-            "disease": None,
-            "remedies": [],
-            "hadith_references": [],
-            "raw_subgraph": {"nodes": [], "edges": []},
-            "metadata": {
-                "query_ms": 0,
-                "node_count": 0,
-                "edge_count": 0,
-                "source": source,
-                "skipped": True,
-            },
-        }
+        # Strip leading comment lines (templates start with "// ...") and
+        # check whether any executable Cypher remains underneath.
+        stripped_lines = [
+            ln for ln in cypher_query.strip().splitlines()
+            if ln.strip() and not ln.strip().startswith("//")
+        ] if cypher_query else []
+        if not stripped_lines:
+            # Truly a comment-only / empty query → skip.
+            logger.info("Skipping graph retrieval — no executable Cypher")
+            return {
+                "disease": None,
+                "remedies": [],
+                "hadith_references": [],
+                "raw_subgraph": {"nodes": [], "edges": []},
+                "metadata": {
+                    "query_ms": 0,
+                    "node_count": 0,
+                    "edge_count": 0,
+                    "source": source,
+                    "skipped": True,
+                },
+            }
 
     driver = _get_driver()
     safe_params = params or {}

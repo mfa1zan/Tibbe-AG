@@ -63,7 +63,10 @@ _GENERAL_QUERY_PATTERN = re.compile(
     r"(?:[\s!,.?]*)$",
     re.IGNORECASE,
 )
-_INGREDIENT_QUERY_PATTERN = re.compile(r"\b(ingredient|ingredients|herb|herbal|remedy|remedies)\b", re.IGNORECASE)
+_INGREDIENT_QUERY_PATTERN = re.compile(
+    r"\b(ingredients?|herbs?|herbal|remed(?:y|ies)|food\s*items?|foods?|what\s+to\s+(?:eat|use|take|consume))\b",
+    re.IGNORECASE,
+)
 _DRUG_QUERY_PATTERN = re.compile(
     r"\b(drug|drugs|medicine|medicines|medication|medications|pharmaceutical|pharmaceuticals|tablet|capsule|pill)\b",
     re.IGNORECASE,
@@ -243,19 +246,28 @@ class GraphRAGOrchestrator:
                 kg_applicable=False,
             )
 
-        # ── Stage 3: Rationale Plan (RAG2 style) ──────────────────────────
+        # ── Stage 3 + 4: Rationale Plan & Graph Retrieval (PARALLEL) ─────
         pipeline_stages.append("rationale_plan")
-        rationale_result = await generate_rationale_plan(
+        pipeline_stages.append("intent_routing")
+
+        async def _graph_retrieval_async():
+            """Run synchronous graph retrieval in a thread to enable parallelism."""
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                None,
+                self._retrieve_graph_by_intent,
+                disease, ingredient, drug,
+            )
+
+        rationale_task = generate_rationale_plan(
             query=clean_query,
             entities=entities,
             llm_service=self._llm_service,
             model=self._a0_model,
         )
 
-        # ── Stage 4: Intent Routing ────────────────────────────────────────
-        pipeline_stages.append("intent_routing")
-        subgraph, primary_entity_type, primary_entity_name = self._retrieve_graph_by_intent(
-            disease=disease, ingredient=ingredient, drug=drug,
+        rationale_result, (subgraph, primary_entity_type, primary_entity_name) = (
+            await asyncio.gather(rationale_task, _graph_retrieval_async())
         )
 
         # ── Stage 5: Graph Retrieval (already done by intent routing) ──────
@@ -386,13 +398,22 @@ class GraphRAGOrchestrator:
             "dosage_alignment": dosage_result.overall_alignment_score,
         }
 
+        # Slim dosage_validation for the reasoning trace (clients don't need
+        # dozens of identical "no data" comparison objects).
+        dosage_dict = dosage_result.to_dict()
+        slim_dosage = {
+            "overall_alignment_score": dosage_dict.get("overall_alignment_score"),
+            "has_dosage_data": dosage_dict.get("has_dosage_data"),
+            "comparison_count": len(dosage_dict.get("comparisons", [])),
+        }
+
         reasoning_trace = {
             "entity_detected": entities,
             "rationale_plan": rationale_result.get("rationale_plan"),
             "retrieved_paths": causal_analysis.get("causal_paths", [])[:10],
             "causal_ranking": causal_analysis.get("causal_paths", [])[:5],
             "causal_summary": causal_summary,
-            "dosage_validation": dosage_result.to_dict(),
+            "dosage_validation": slim_dosage,
             "faith_alignment_notes": faith_result.faith_alignment_notes,
             "faith_alignment_score": faith_result.faith_alignment_score,
             "confidence_breakdown": confidence_breakdown,
@@ -445,6 +466,35 @@ class GraphRAGOrchestrator:
         }
 
     # ── Internal helpers ───────────────────────────────────────────────────
+
+    @staticmethod
+    def _trim_reasoning_for_llm(reasoning: dict, *, max_ingredients: int = 8,
+                                 max_compounds: int = 15, max_drugs: int = 10,
+                                 max_mappings: int = 10) -> dict:
+        """Return a slimmed copy of reasoning suitable for LLM prompts.
+
+        The full reasoning dict can contain hundreds of compounds and drugs
+        (especially for diseases with many ingredients).  Sending 50 KB+ of
+        JSON to the LLM inflates prompt tokens and slows completion.  This
+        helper caps the largest lists while keeping all scalar fields and
+        metadata intact so the LLM still has good coverage.
+        """
+        trimmed = dict(reasoning)  # shallow copy
+
+        for key, limit in [
+            ("Ingredients", max_ingredients),
+            ("ChemicalCompounds", max_compounds),
+            ("DrugChemicalCompounds", max_compounds),
+            ("Drugs", max_drugs),
+            ("BiochemicalMappings", max_mappings),
+            ("HadithReferences", 5),
+            ("Relations", max_mappings * 3),
+        ]:
+            items = trimmed.get(key)
+            if isinstance(items, list) and len(items) > limit:
+                trimmed[key] = items[:limit]
+
+        return trimmed
 
     def _wrap_context(
         self,
@@ -605,47 +655,42 @@ class GraphRAGOrchestrator:
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
                 "Do NOT hallucinate entities, studies, or claims.\n\n"
-                "Follow this EXACT chain-of-thought structure:\n"
-                "Step 1: Identify the disease from the query\n"
-                "Step 2: List all traditional/natural Ingredients linked via CURES relationship\n"
-                "Step 3: For each ingredient, list the ChemicalCompounds it CONTAINS\n"
-                "Step 4: Match each compound to Drug equivalents via IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO\n"
-                "Step 5: Explain the biochemical mechanism connecting ingredients to drugs step-by-step\n"
-                "Step 6: Include any Hadith references with respectful, non-exclusivist framing\n"
-                "Step 7: Clearly state the uncertainty level and mapping strength for each link\n\n"
-                "Label mapping strengths: IDENTICAL = confirmed, LIKELY = probable, WEAK = tentative.\n"
-                "If no drug equivalents exist, explicitly state that.\n"
-                "If causal scores are provided, mention the strongest causal paths.\n"
-                "If dosage data is available, include dosage comparison notes.\n"
-                "Always recommend consulting a healthcare professional."
+                "Internally reason through these steps (do NOT expose them in the output):\n"
+                "- Identify the disease\n"
+                "- List ALL traditional/natural ingredients linked via CURES\n"
+                "- For each ingredient, note its chemical compounds\n"
+                "- Map compounds to drug equivalents (IDENTICAL/LIKELY/WEAK)\n"
+                "- Note Hadith references if present\n\n"
+                "OUTPUT FORMAT — write a clean, natural-language answer:\n"
+                "1. Start with a concise summary sentence.\n"
+                "2. List every ingredient with its key compounds and drug mappings.\n"
+                "3. Label mapping strengths: IDENTICAL = confirmed, LIKELY = probable, WEAK = tentative.\n"
+                "4. If Hadith evidence exists, include it with respectful framing.\n"
+                "5. End with a brief safety disclaimer recommending a healthcare professional.\n\n"
+                "NEVER output step numbers, headings like 'Step 1:', or chain-of-thought markers.\n"
+                "Write as a helpful, readable paragraph/list for the end user."
             )
         elif primary_entity_type == "Ingredient":
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
                 "Do NOT hallucinate entities, studies, or claims.\n\n"
-                "For this ingredient query, follow this reasoning chain:\n"
-                "1. Identify the ingredient\n"
-                "2. List diseases it cures (via CURES)\n"
-                "3. List chemical compounds it contains\n"
-                "4. Map compounds to drug equivalents with strengths\n"
-                "5. Include Hadith references if present\n"
-                "6. State uncertainty level\n"
-                "Always recommend consulting a healthcare professional."
+                "Internally reason through: ingredient → diseases it cures → its chemical compounds → "
+                "drug equivalents with mapping strength → Hadith references.\n\n"
+                "OUTPUT a clean, natural-language answer (no step numbers, no headings).\n"
+                "Include mapping strengths (IDENTICAL/LIKELY/WEAK) and uncertainty.\n"
+                "End with a brief safety disclaimer recommending a healthcare professional."
             )
         elif primary_entity_type == "Drug":
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
                 "Do NOT hallucinate entities, studies, or claims.\n\n"
-                "For this drug query, follow this reasoning chain:\n"
-                "1. Identify the drug\n"
-                "2. List chemical compounds it contains\n"
-                "3. Map compounds back to natural ingredients with strengths\n"
-                "4. List diseases those ingredients can treat\n"
-                "5. Include Hadith references if present\n"
-                "6. State uncertainty level\n"
-                "Always recommend consulting a healthcare professional."
+                "Internally reason through: drug → its compounds → natural ingredient equivalents "
+                "with mapping strength → diseases those ingredients treat → Hadith if present.\n\n"
+                "OUTPUT a clean, natural-language answer (no step numbers, no headings).\n"
+                "Include mapping strengths (IDENTICAL/LIKELY/WEAK) and uncertainty.\n"
+                "End with a brief safety disclaimer recommending a healthcare professional."
             )
         else:
             system_prompt = (
@@ -656,22 +701,24 @@ class GraphRAGOrchestrator:
             )
 
         # Build enriched user prompt with causal + dosage context
+        # Trim reasoning to avoid inflating prompt tokens
+        trimmed_reasoning = self._trim_reasoning_for_llm(reasoning)
         context_parts = [
             f"User Query:\n{query}\n",
-            f"Structured Graph Reasoning (JSON):\n{json.dumps(reasoning, ensure_ascii=False, indent=2)}",
+            f"Structured Graph Reasoning (JSON):\n{json.dumps(trimmed_reasoning, ensure_ascii=False)}",
         ]
 
         if causal_analysis and causal_analysis.get("causal_paths"):
             top_paths = causal_analysis["causal_paths"][:5]
             context_parts.append(
                 f"\nTop Causal Paths (ranked by causal_score):\n"
-                f"{json.dumps(top_paths, ensure_ascii=False, indent=2)}"
+                f"{json.dumps(top_paths, ensure_ascii=False)}"
             )
 
         if dosage_validation and dosage_validation.get("comparisons"):
             context_parts.append(
                 f"\nDosage Comparison Data:\n"
-                f"{json.dumps(dosage_validation, ensure_ascii=False, indent=2)}"
+                f"{json.dumps(dosage_validation, ensure_ascii=False)}"
             )
 
         user_prompt = "\n".join(context_parts)
@@ -695,20 +742,25 @@ class GraphRAGOrchestrator:
         """Stage 11: Af validation with safety and uncertainty controls."""
         system_prompt = (
             "You are PRO-MedGraph Validator (Af).\n"
-            "Validate the draft answer against the provided graph reasoning only.\n"
-            "Add uncertainty language for WEAK links.\n"
-            "Add concise medical safety disclaimers where needed.\n"
-            "Ensure faith alignment and respectful Hadith framing.\n"
-            "Ensure the answer recommends consulting a healthcare professional.\n"
-            "Do NOT add unsupported claims.\n"
-            "Do NOT use miracle/guarantee/divine-cure language.\n"
-            "Return the final user-facing answer only."
+            "Your ONLY job is to produce a polished, user-facing answer.\n\n"
+            "RULES:\n"
+            "1. Validate facts against the provided graph reasoning — remove anything unsupported.\n"
+            "2. Add uncertainty language for WEAK links (e.g., 'tentatively', 'may').\n"
+            "3. Add a concise medical safety disclaimer recommending a healthcare professional.\n"
+            "4. Ensure respectful, non-exclusivist Hadith framing.\n"
+            "5. Do NOT add unsupported claims or miracle/guarantee/divine-cure language.\n\n"
+            "FORMAT:\n"
+            "- Strip ALL step numbers, headings ('Step 1:', '## Step 2:', etc.), and chain-of-thought scaffolding.\n"
+            "- Output a clean, conversational, well-structured answer suitable for a patient or end user.\n"
+            "- Use bullet points or numbered lists only for ingredient/drug listings, not for reasoning steps.\n"
+            "- Return ONLY the final answer text — no meta-commentary."
         )
 
         user_prompt = (
             f"User Query:\n{query}\n\n"
             f"Draft Answer (A0):\n{a0_answer}\n\n"
-            f"Structured Graph Reasoning (JSON):\n{json.dumps(reasoning, ensure_ascii=False, indent=2)}"
+            f"Structured Graph Reasoning (JSON):\n"
+            f"{json.dumps(self._trim_reasoning_for_llm(reasoning), ensure_ascii=False)}"
         )
 
         try:

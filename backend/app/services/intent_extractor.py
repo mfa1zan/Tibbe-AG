@@ -41,9 +41,6 @@ import logging
 import re
 from typing import Any
 
-# Step 1 wrapper — sends the query to MODEL_INTENT via Groq.
-from app.services.multi_model_service import call_intent_model
-
 logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────────

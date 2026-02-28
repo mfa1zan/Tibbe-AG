@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from functools import lru_cache
+
 from neo4j import GraphDatabase
 
 from app.config import get_settings
@@ -24,6 +26,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
 def _get_driver():
     settings = get_settings()
     return GraphDatabase.driver(

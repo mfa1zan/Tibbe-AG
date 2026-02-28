@@ -99,24 +99,19 @@ def get_disease_subgraph(disease_name: str) -> dict:
            d.name AS disease_name,
            elementId(ingredient) AS ingredient_id,
            ingredient.name AS ingredient_name,
-           ingredient.traditional_dosage AS ingredient_dosage,
-           ingredient.preparation_method AS ingredient_preparation,
            elementId(cc) AS cc_id,
            cc.name AS cc_name,
            elementId(dcc) AS dcc_id,
            dcc.name AS dcc_name,
            elementId(drug) AS drug_id,
            drug.name AS drug_name,
-           drug.standard_dosage AS drug_dosage,
-           drug.contraindications AS drug_contraindications,
-           drug.side_effects AS drug_side_effects,
            type(isrel) AS is_relation_type
     LIMIT $limit
     """
 
     try:
         with driver.session() as session:
-            rows = list(session.run(query, disease_name=disease_name, limit=300))
+            rows = list(session.run(query, disease_name=disease_name, limit=1500))
 
         ingredients: dict[str, dict[str, Any]] = {}
         compounds: dict[str, dict[str, Any]] = {}
@@ -130,8 +125,6 @@ def get_disease_subgraph(disease_name: str) -> dict:
                 ingredients[ingredient_id] = {
                     "id": ingredient_id,
                     "name": row.get("ingredient_name"),
-                    "traditional_dosage": row.get("ingredient_dosage"),
-                    "preparation_method": row.get("ingredient_preparation"),
                 }
 
             cc_id = row.get("cc_id")
@@ -154,9 +147,6 @@ def get_disease_subgraph(disease_name: str) -> dict:
                 drugs[drug_id] = {
                     "id": drug_id,
                     "name": row.get("drug_name"),
-                    "standard_dosage": row.get("drug_dosage"),
-                    "contraindications": row.get("drug_contraindications"),
-                    "side_effects": row.get("drug_side_effects"),
                 }
 
             if ingredient_id and cc_id:

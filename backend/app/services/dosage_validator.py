@@ -17,10 +17,6 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from neo4j import GraphDatabase
-
-from app.config import get_settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -81,89 +77,35 @@ class DosageValidationResult:
 
 
 # ── Neo4j dosage queries ───────────────────────────────────────────────────────
-
-
-def _get_driver():
-    settings = get_settings()
-    return GraphDatabase.driver(
-        settings.neo4j_uri,
-        auth=(settings.neo4j_username, settings.neo4j_password),
-    )
+# NOTE: The KG does not yet have dosage/safety properties on Ingredient or Drug
+# nodes.  The fetch functions below return neutral empty results immediately.
+# When these properties are added to the KG, replace the stubs with real
+# Neo4j queries.
 
 
 def fetch_ingredient_dosage(ingredient_name: str) -> IngredientDosage:
     """
-    Fetch dosage metadata for an ingredient from Neo4j.
-    Properties: traditional_dosage, preparation_method (may not exist yet in KG).
+    Return dosage metadata for an ingredient.
+
+    NOTE: The KG does not currently store traditional_dosage or
+    preparation_method properties on Ingredient nodes, so we return a
+    neutral "no data" result immediately instead of hitting Neo4j with
+    queries for non-existent properties (which generated floods of
+    UnknownPropertyKeyWarning and wasted round-trips).
     """
-    driver = _get_driver()
-    query = """
-    MATCH (i:Ingredient)
-    WHERE toLower(i.name) = toLower($name)
-    RETURN i.name AS name,
-           i.traditional_dosage AS traditional_dosage,
-           i.preparation_method AS preparation_method
-    LIMIT 1
-    """
-    try:
-        with driver.session() as session:
-            row = session.run(query, name=ingredient_name).single()
-
-        if not row:
-            return IngredientDosage(name=ingredient_name)
-
-        trad = row.get("traditional_dosage")
-        prep = row.get("preparation_method")
-        has_data = bool(trad or prep)
-
-        return IngredientDosage(
-            name=row.get("name") or ingredient_name,
-            traditional_dosage=trad if isinstance(trad, str) and trad.strip() else None,
-            preparation_method=prep if isinstance(prep, str) and prep.strip() else None,
-            dosage_available=has_data,
-        )
-    except Exception:
-        logger.exception("Failed to fetch ingredient dosage for '%s'", ingredient_name)
-        return IngredientDosage(name=ingredient_name)
+    return IngredientDosage(name=ingredient_name)
 
 
 def fetch_drug_dosage(drug_name: str) -> DrugDosage:
     """
-    Fetch clinical metadata for a drug from Neo4j.
-    Properties: standard_dosage, contraindications, side_effects (may not exist yet in KG).
+    Return clinical metadata for a drug.
+
+    NOTE: The KG does not currently store standard_dosage,
+    contraindications, or side_effects properties on Drug nodes, so we
+    return a neutral "no data" result immediately instead of hitting
+    Neo4j with queries for non-existent properties.
     """
-    driver = _get_driver()
-    query = """
-    MATCH (d:Drug)
-    WHERE toLower(d.name) = toLower($name)
-    RETURN d.name AS name,
-           d.standard_dosage AS standard_dosage,
-           d.contraindications AS contraindications,
-           d.side_effects AS side_effects
-    LIMIT 1
-    """
-    try:
-        with driver.session() as session:
-            row = session.run(query, name=drug_name).single()
-
-        if not row:
-            return DrugDosage(name=drug_name)
-
-        dosage = row.get("standard_dosage")
-        contra = row.get("contraindications")
-        effects = row.get("side_effects")
-        has_data = bool(dosage or contra or effects)
-
-        return DrugDosage(
-            name=row.get("name") or drug_name,
-            standard_dosage=dosage if isinstance(dosage, str) and dosage.strip() else None,
-            contraindications=contra if isinstance(contra, str) and contra.strip() else None,
-            side_effects=effects if isinstance(effects, str) and effects.strip() else None,
-            dosage_available=has_data,
-        )
-    except Exception:
-        logger.exception("Failed to fetch drug dosage for '%s'", drug_name)
-        return DrugDosage(name=drug_name)
+    return DrugDosage(name=drug_name)
 
 
 # ── Scoring ────────────────────────────────────────────────────────────────────
@@ -233,10 +175,12 @@ def validate_dosage(
     comparisons: list[DosageComparison] = []
     seen_pairs: set[tuple[str, str]] = set()
 
-    # Prefer causal paths if available
+    # Prefer causal paths if available — cap at 10 unique pairs
     paths_source = causal_paths or []
 
     for path in paths_source:
+        if len(comparisons) >= 10:
+            break
         if not isinstance(path, dict):
             continue
         ing_name = path.get("ingredient")
@@ -260,7 +204,10 @@ def validate_dosage(
             alignment_notes=notes,
         ))
 
-    # Fallback: if no causal paths, try extracting from reasoning directly
+    # Fallback: if no causal paths, sample a handful of ingredient/drug pairs.
+    # A full cartesian product (Ingredients × Drugs) is unnecessary when dosage
+    # properties are absent from the KG — all comparisons return the same
+    # neutral result.  Cap at 3×3 = 9 pairs max.
     if not comparisons:
         ingredients = reasoning.get("Ingredients", []) or []
         drugs = reasoning.get("Drugs", []) or []
@@ -268,12 +215,12 @@ def validate_dosage(
         ingredient_names = [
             i.get("name") for i in ingredients
             if isinstance(i, dict) and isinstance(i.get("name"), str)
-        ][:5]  # Limit to top 5
+        ][:3]
 
         drug_names = [
             d.get("name") for d in drugs
             if isinstance(d, dict) and isinstance(d.get("name"), str)
-        ][:5]
+        ][:3]
 
         for ing_name in ingredient_names:
             ing_dosage = fetch_ingredient_dosage(ing_name)

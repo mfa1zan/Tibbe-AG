@@ -330,11 +330,47 @@ def _template_drug_interaction(intent: dict[str, Any], max_hops: int) -> str | N
 
 def _template_food_remedy(intent: dict[str, Any], max_hops: int) -> str | None:
     """
-    food_remedy + food entity → Ingredient subgraph.
+    food_remedy + food/condition/symptom entity → Ingredient subgraph.
 
-    Ingredient → Disease, Ingredient → ChemicalCompound → DrugChemicalCompound → Drug
+    When the primary entity is a food/ingredient:
+      Ingredient → Disease, Ingredient → ChemicalCompound → DrugChemicalCompound → Drug
+    When the primary entity is a condition/symptom:
+      Disease → Ingredient (reverse lookup — same as ask_remedy).
     """
     cat, val = _primary_entity(intent)
+
+    # ── condition / symptom entity — reverse lookup via Disease node ────
+    if cat in ("condition", "symptom"):
+        if max_hops >= 3:
+            return (
+                "// food_remedy — condition entity, full multi-hop chain\n"
+                "MATCH (d:Disease)\n"
+                "WHERE toLower(d.name) CONTAINS toLower($entity_name)\n"
+                "OPTIONAL MATCH (d)<-[:CURES]-(i:Ingredient)\n"
+                "OPTIONAL MATCH (i)-[:CONTAINS]->(cc:ChemicalCompound)\n"
+                "OPTIONAL MATCH (cc)-[mapping:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO|IS_WEAK_MATCH_TO]->(dcc:DrugChemicalCompound)\n"
+                "OPTIONAL MATCH (drug:Drug)-[:CONTAINS]->(dcc)\n"
+                "OPTIONAL MATCH (d)-[:MENTIONED_IN]->(h:Hadith)\n"
+                "RETURN d.name AS disease,\n"
+                "       collect(DISTINCT i.name) AS ingredients,\n"
+                "       collect(DISTINCT cc.name) AS compounds,\n"
+                "       collect(DISTINCT {compound: cc.name, drugCompound: dcc.name, strength: type(mapping)}) AS mappings,\n"
+                "       collect(DISTINCT drug.name) AS drugs,\n"
+                "       collect(DISTINCT h.name) AS hadith_references\n"
+                "LIMIT 300"
+            )
+        return (
+            "// food_remedy — condition entity, disease-to-ingredient lookup\n"
+            "MATCH (d:Disease)\n"
+            "WHERE toLower(d.name) CONTAINS toLower($entity_name)\n"
+            "OPTIONAL MATCH (d)<-[:CURES]-(i:Ingredient)\n"
+            "OPTIONAL MATCH (d)-[:MENTIONED_IN]->(h:Hadith)\n"
+            "RETURN d.name AS disease,\n"
+            "       collect(DISTINCT i.name) AS ingredients,\n"
+            "       collect(DISTINCT h.name) AS hadith_references\n"
+            "LIMIT 300"
+        )
+
     if cat != "food":
         return None
 
