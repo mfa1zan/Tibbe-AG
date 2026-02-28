@@ -45,7 +45,7 @@ function AppShell() {
       setMessages((current) => [...current, optimisticMessage]);
 
       try {
-        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety } = await sendMessageToChatApi(
+        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety, reasoningTrace } = await sendMessageToChatApi(
           messageText,
           {
           usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true'
@@ -58,7 +58,8 @@ function AppShell() {
             evidenceStrength,
             graphPathsUsed,
             confidenceScore,
-            safety
+            safety,
+            reasoningTrace
           })
         ]);
       } catch (error) {

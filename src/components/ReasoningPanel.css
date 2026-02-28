@@ -1,0 +1,118 @@
+/* ── Reasoning Panel ──────────────────────────────────────── */
+
+.reasoning-panel {
+  margin-top: 6px;
+}
+
+.reasoning-toggle {
+  background: none;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary, #aaa);
+  transition: background 0.15s, color 0.15s;
+}
+.reasoning-toggle:hover {
+  background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #eee);
+}
+
+.reasoning-body {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-alt, rgba(0, 0, 0, 0.15));
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #bbb);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.reasoning-section {
+  margin-bottom: 10px;
+}
+.reasoning-section:last-child {
+  margin-bottom: 0;
+}
+
+.reasoning-section-title {
+  margin: 0 0 4px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-color, #4caf50);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.reasoning-kv {
+  margin: 2px 0;
+}
+.reasoning-kv-label {
+  font-weight: 500;
+  color: var(--text-primary, #ddd);
+}
+.reasoning-kv-value {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* Plan list */
+.reasoning-plan-list {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+.reasoning-plan-list li {
+  margin-bottom: 2px;
+}
+
+/* Pipeline stage chips */
+.reasoning-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0 0;
+}
+.stage-chip {
+  background: var(--primary-color, #4caf50);
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Causal table */
+.reasoning-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+.reasoning-table th,
+.reasoning-table td {
+  padding: 3px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+.reasoning-table th {
+  font-weight: 600;
+  color: var(--text-primary, #ddd);
+}
+
+.reasoning-note {
+  margin: 4px 0 0 0;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.reasoning-warnings {
+  margin: 4px 0 0 16px;
+  padding: 0;
+  color: #e6a23c;
+}
+.reasoning-warnings li {
+  margin-bottom: 2px;
+}

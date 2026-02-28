@@ -1,3 +1,4 @@
+import ReasoningPanel from './ReasoningPanel';
 import './ChatBubble.css';
 
 function ChatBubble({ message }) {
@@ -25,6 +26,9 @@ function ChatBubble({ message }) {
             {hasConfidence ? ` • Confidence: ${(message.confidenceScore * 100).toFixed(0)}%` : ''}
           </p>
         ) : null}
+        {!isUser && message.reasoningTrace && (
+          <ReasoningPanel trace={message.reasoningTrace} />
+        )}
       </div>
     </article>
   );
