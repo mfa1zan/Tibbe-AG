@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     llm_judge_model: str | None = None
     enable_judge_scoring: bool = False
 
+    # ── Per-stage model overrides (multi-model environment) ──
+    model_intent: str | None = None
+    model_kg: str | None = None
+    model_reasoner: str | None = None
+    model_validator: str | None = None
+    model_chat: str | None = None
+    model_audio: str | None = None
+
     kg_cache_ttl_seconds: int = 600
     kg_cache_maxsize: int = 512
 

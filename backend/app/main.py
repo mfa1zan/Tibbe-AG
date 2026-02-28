@@ -49,6 +49,14 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/models")
+async def models() -> dict[str, str]:
+    """Return which Groq model is assigned to each pipeline stage."""
+    from app.services.multi_model_service import get_model_map
+
+    return get_model_map()
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     pipeline: orchestrator.GraphRAGOrchestrator = app.state.orchestrator
