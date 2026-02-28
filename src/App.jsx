@@ -45,10 +45,16 @@ function AppShell() {
       setMessages((current) => [...current, optimisticMessage]);
 
       try {
+        // Build conversation history for co-reference resolution (last 10 messages)
+        const historyForApi = messages
+          .slice(-10)
+          .map((m) => ({ role: m.role === 'bot' ? 'bot' : 'user', content: m.content }));
+
         const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety, reasoningTrace } = await sendMessageToChatApi(
           messageText,
           {
-          usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true'
+            usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true',
+            history: historyForApi
           }
         );
 

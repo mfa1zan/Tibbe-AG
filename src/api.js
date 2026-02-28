@@ -1,7 +1,7 @@
 const PLACEHOLDER_BOT_REPLY = 'Hello, I am PRO-MedGraph. How can I help you today?';
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { usePlaceholder = false } = options;
+  const { usePlaceholder = false, history = [] } = options;
 
   if (usePlaceholder) {
     return {
@@ -20,7 +20,7 @@ export async function sendMessageToChatApi(message, options = {}) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: message })
+      body: JSON.stringify({ query: message, history })
     });
   } catch {
     throw new Error('Unable to connect to backend. Start FastAPI on port 8010 and try again.');
