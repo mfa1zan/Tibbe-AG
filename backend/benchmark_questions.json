@@ -1,0 +1,352 @@
+[
+  {
+    "id": 1,
+    "query": "What are the natural remedies for diabetes mentioned in Prophetic medicine?",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "query": "How does honey help with stomach ulcers?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 3,
+    "query": "What are the ingredients for treating headache?",
+    "category": "ingredient_list",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 4,
+    "query": "Is black seed effective against cancer?",
+    "category": "ingredient_disease",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 5,
+    "query": "What drugs are equivalent to the compounds found in Nigella sativa?",
+    "category": "drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 6,
+    "query": "What diseases can olive oil cure according to Prophetic medicine?",
+    "category": "ingredient_disease",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 7,
+    "query": "Tell me about the treatment of fever in Islamic medicine",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 8,
+    "query": "What chemical compounds are present in ginger and what drugs match them?",
+    "category": "compound_drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 9,
+    "query": "How is Metformin related to natural ingredients?",
+    "category": "drug_reverse",
+    "expected_entity_type": "Drug",
+    "difficulty": "hard"
+  },
+  {
+    "id": 10,
+    "query": "What Hadith references exist for treating eye diseases?",
+    "category": "hadith_query",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 11,
+    "query": "What are the benefits of Zamzam water?",
+    "category": "ingredient_benefit",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 12,
+    "query": "Which ingredients treat asthma and what are their drug equivalents?",
+    "category": "full_pipeline",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 13,
+    "query": "What is the dosage of Senna for constipation?",
+    "category": "dosage_query",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 14,
+    "query": "Tell me about Prophetic medicine for kidney stones",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 15,
+    "query": "What are the side effects of drugs equivalent to turmeric compounds?",
+    "category": "drug_safety",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 16,
+    "query": "How does vinegar help with digestive issues?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 17,
+    "query": "What biomedical pathways connect garlic to heart disease treatment?",
+    "category": "causal_reasoning",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 18,
+    "query": "Is Aspirin related to any natural ingredient in Prophetic medicine?",
+    "category": "drug_reverse",
+    "expected_entity_type": "Drug",
+    "difficulty": "hard"
+  },
+  {
+    "id": 19,
+    "query": "What remedies does the Quran and Hadith suggest for anxiety?",
+    "category": "faith_medical",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 20,
+    "query": "List all chemical compounds in dates and their pharmaceutical matches",
+    "category": "compound_drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 21,
+    "query": "What are the natural treatments for high blood pressure?",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 22,
+    "query": "How does cupping therapy work for back pain?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 23,
+    "query": "What are the ingredients for treating skin diseases in Tibb-e-Nabawi?",
+    "category": "ingredient_list",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 24,
+    "query": "Tell me the multi-hop drug pathway from fenugreek to diabetes treatment",
+    "category": "multi_hop",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 25,
+    "query": "What is the scientific evidence behind using Miswak for dental health?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 26,
+    "query": "What stomach ailments does Talbina help with?",
+    "category": "ingredient_disease",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 27,
+    "query": "Which drugs contain the same active compounds as cinnamon?",
+    "category": "drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 28,
+    "query": "How does Prophetic medicine approach liver diseases?",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 29,
+    "query": "What is the causal chain from pomegranate to anemia treatment?",
+    "category": "causal_reasoning",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 30,
+    "query": "How effective is kalonji oil for immune system boosting?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 31,
+    "query": "What is the traditional dosage for black seed in treating allergies?",
+    "category": "dosage_query",
+    "expected_entity_type": "Disease",
+    "difficulty": "medium"
+  },
+  {
+    "id": 32,
+    "query": "Are there any contraindications for drugs related to saffron compounds?",
+    "category": "drug_safety",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 33,
+    "query": "What Hadith mentions the healing properties of honey?",
+    "category": "hadith_query",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "easy"
+  },
+  {
+    "id": 34,
+    "query": "Explain the complete pathway from Ajwa dates to heart disease treatment",
+    "category": "full_pipeline",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 35,
+    "query": "What joint pain treatments exist in Islamic medicine?",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 36,
+    "query": "Is there a faith-science alignment in using Zamzam water for healing?",
+    "category": "faith_medical",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 37,
+    "query": "What are the biochemical mappings for costus (Qust al-Hindi)?",
+    "category": "compound_drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 38,
+    "query": "How does Sidr leaf help with skin allergies?",
+    "category": "ingredient_mechanism",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 39,
+    "query": "What natural ingredients are mentioned for treating insomnia?",
+    "category": "ingredient_list",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 40,
+    "query": "Give me the drug equivalents for all compounds found in Habb-e-Sawda",
+    "category": "drug_mapping",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 41,
+    "query": "What is the relationship between Triphala and digestive disorders?",
+    "category": "ingredient_disease",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 42,
+    "query": "How do I treat a wound using Prophetic medicine?",
+    "category": "disease_treatment",
+    "expected_entity_type": "Disease",
+    "difficulty": "easy"
+  },
+  {
+    "id": 43,
+    "query": "What is Ibuprofen's connection to natural anti-inflammatory herbs?",
+    "category": "drug_reverse",
+    "expected_entity_type": "Drug",
+    "difficulty": "hard"
+  },
+  {
+    "id": 44,
+    "query": "Explain the multi-hop graph path from diabetes to Metformin through natural compounds",
+    "category": "multi_hop",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 45,
+    "query": "What respiratory diseases can thyme treat?",
+    "category": "ingredient_disease",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 46,
+    "query": "What are the preparation methods for using henna medicinally?",
+    "category": "dosage_query",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "medium"
+  },
+  {
+    "id": 47,
+    "query": "Is there scientific backing for the Prophet's recommendation of talbina for grief?",
+    "category": "faith_medical",
+    "expected_entity_type": "Ingredient",
+    "difficulty": "hard"
+  },
+  {
+    "id": 48,
+    "query": "What are all the ingredients and drugs related to treating malaria?",
+    "category": "full_pipeline",
+    "expected_entity_type": "Disease",
+    "difficulty": "hard"
+  },
+  {
+    "id": 49,
+    "query": "Hello, how are you?",
+    "category": "general_greeting",
+    "expected_entity_type": null,
+    "difficulty": "easy"
+  },
+  {
+    "id": 50,
+    "query": "Thank you for your help",
+    "category": "general_greeting",
+    "expected_entity_type": null,
+    "difficulty": "easy"
+  }
+]

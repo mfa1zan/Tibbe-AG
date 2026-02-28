@@ -54,22 +54,21 @@ async def chat(request: ChatRequest) -> ChatResponse:
     pipeline: orchestrator.GraphRAGOrchestrator = app.state.orchestrator
 
     try:
-        # 1) Execute GraphRAG orchestrator pipeline for the incoming query.
+        # 1) Execute full GraphRAG orchestrator pipeline (safety already applied inside).
         pipeline_result = await pipeline.process_user_query_with_context_async(request.query)
+        output = pipeline_result.get("output", {})
 
-        reasoning = pipeline_result.get("reasoning", {})
-        llm_output = pipeline_result.get("output", {})
+        # 2) Extract reasoning trace (attached by orchestrator stage 15).
+        raw_trace = output.get("reasoning_trace") or pipeline_result.get("reasoning_trace")
 
-        # 2) Apply deterministic safety and confidence post-processing before response.
-        safe_output = safety_service.apply_safety_checks(reasoning=reasoning, llm_output=llm_output)
-
-        # 3) Return only public-safe API fields (no Cypher, raw records, or schema internals).
+        # 3) Return public-safe API fields + optional reasoning trace.
         return ChatResponse(
-            final_answer=safe_output.get("final_answer")
+            final_answer=output.get("final_answer")
             or "PRO-MedGraph could not generate a final answer right now.",
-            evidence_strength=safe_output.get("evidence_strength") or "weak",
-            graph_paths_used=int(safe_output.get("graph_paths_used") or 0),
-            confidence_score=safe_output.get("confidence_score"),
+            evidence_strength=output.get("evidence_strength") or "weak",
+            graph_paths_used=int(output.get("graph_paths_used") or 0),
+            confidence_score=output.get("confidence_score"),
+            reasoning_trace=raw_trace,
         )
     except Exception:
         logger.exception("/api/chat failed")

@@ -35,6 +35,42 @@ def _format_named_node(node_dict: dict[str, Any] | None) -> dict[str, str | None
     }
 
 
+def _format_ingredient_node(node_dict: dict[str, Any] | None) -> dict[str, str | None]:
+    """Normalize ingredient payload and include dosage metadata if present."""
+    payload = node_dict or {}
+    result = {
+        "id": _safe_str(payload.get("id")),
+        "name": _safe_str(payload.get("name")),
+    }
+    # Dosage fields (may be None if not yet in KG)
+    trad = _safe_str(payload.get("traditional_dosage"))
+    prep = _safe_str(payload.get("preparation_method"))
+    if trad:
+        result["traditional_dosage"] = trad
+    if prep:
+        result["preparation_method"] = prep
+    return result
+
+
+def _format_drug_node(node_dict: dict[str, Any] | None) -> dict[str, str | None]:
+    """Normalize drug payload and include clinical metadata if present."""
+    payload = node_dict or {}
+    result = {
+        "id": _safe_str(payload.get("id")),
+        "name": _safe_str(payload.get("name")),
+    }
+    dosage = _safe_str(payload.get("standard_dosage"))
+    contra = _safe_str(payload.get("contraindications"))
+    effects = _safe_str(payload.get("side_effects"))
+    if dosage:
+        result["standard_dosage"] = dosage
+    if contra:
+        result["contraindications"] = contra
+    if effects:
+        result["side_effects"] = effects
+    return result
+
+
 def _format_disease(disease_dict: dict[str, Any] | None) -> dict[str, str | None]:
     """Normalize disease payload and keep category metadata if available."""
     payload = disease_dict or {}
@@ -218,11 +254,11 @@ def build_graph_reasoning(subgraph: dict) -> dict:
     disease = _format_disease(safe_subgraph.get("Disease"))
     diseases = [_format_disease(item) for item in _ensure_list(safe_subgraph.get("Diseases")) if isinstance(item, dict)]
     
-    ingredient = _format_named_node(safe_subgraph.get("Ingredient"))
-    ingredients = [_format_named_node(item) for item in _ensure_list(safe_subgraph.get("Ingredients")) if isinstance(item, dict)]
+    ingredient = _format_ingredient_node(safe_subgraph.get("Ingredient"))
+    ingredients = [_format_ingredient_node(item) for item in _ensure_list(safe_subgraph.get("Ingredients")) if isinstance(item, dict)]
     
-    drug = _format_named_node(safe_subgraph.get("Drug"))
-    drugs = [_format_named_node(item) for item in _ensure_list(safe_subgraph.get("Drugs")) if isinstance(item, dict)]
+    drug = _format_drug_node(safe_subgraph.get("Drug"))
+    drugs = [_format_drug_node(item) for item in _ensure_list(safe_subgraph.get("Drugs")) if isinstance(item, dict)]
     
     compounds = [
         _format_named_node(item)

@@ -45,6 +45,7 @@ export async function sendMessageToChatApi(message, options = {}) {
     evidenceStrength: typeof data.evidence_strength === 'string' ? data.evidence_strength : 'weak',
     graphPathsUsed: Number.isFinite(data.graph_paths_used) ? data.graph_paths_used : 0,
     confidenceScore: typeof data.confidence_score === 'number' ? data.confidence_score : null,
-    safety: data?.safety && typeof data.safety === 'object' ? data.safety : null
+    safety: data?.safety && typeof data.safety === 'object' ? data.safety : null,
+    reasoningTrace: data?.reasoning_trace && typeof data.reasoning_trace === 'object' ? data.reasoning_trace : null
   };
 }
