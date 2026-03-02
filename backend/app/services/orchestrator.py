@@ -160,6 +160,7 @@ class GraphRAGOrchestrator:
         self._a0_model = settings.llm_answer_model or settings.groq_model
         self._af_model = settings.llm_validator_model or settings.groq_model
         self._eval_model = settings.llm_judge_model or settings.groq_model
+        self._coref_model = settings.model_intent or settings.groq_model  # lightweight rewrite
 
         self._kg_schema = _load_kg_schema()
 
@@ -190,7 +191,9 @@ class GraphRAGOrchestrator:
             logger.exception("Orchestrator pipeline failed")
             return self._fallback_response("Pipeline failure")
 
-    async def process_user_query_with_context_async(self, query: str) -> dict:
+    async def process_user_query_with_context_async(
+        self, query: str, *, history: list[dict] | None = None,
+    ) -> dict:
         """Extended 13-stage pipeline returning full context + reasoning trace."""
         clean_query = (query or "").strip()
         pipeline_stages: list[str] = []
@@ -199,12 +202,20 @@ class GraphRAGOrchestrator:
             fallback = self._fallback_response("Empty query")
             return self._wrap_context(clean_query, {}, {}, "", fallback["final_answer"], fallback, pipeline_stages)
 
+        # ── Stage 0: Co-reference resolution via conversation history ──────
+        if history:
+            resolved = await self._resolve_coreferences(clean_query, history)
+            if resolved and resolved != clean_query:
+                logger.info("Query rewritten: '%s' -> '%s'", clean_query, resolved)
+                clean_query = resolved
+                pipeline_stages.append("coreference_resolution")
+
         # ── Stage 1: General Query Check ───────────────────────────────────
         pipeline_stages.append("general_check")
 
         if self._is_general_query(clean_query):
             logger.info("General conversational query detected; bypassing KG pipeline")
-            general_answer = await self._generate_general_answer(clean_query)
+            general_answer = await self._generate_general_answer(clean_query, history=history)
             output = {
                 "final_answer": general_answer,
                 "evidence_strength": "weak",
@@ -231,7 +242,7 @@ class GraphRAGOrchestrator:
         # No biomedical entities -> general response
         if not disease and not ingredient and not drug:
             logger.info("No biomedical entities detected; routing to general response")
-            general_answer = await self._generate_general_answer(clean_query)
+            general_answer = await self._generate_general_answer(clean_query, history=history)
             output = {
                 "final_answer": general_answer,
                 "evidence_strength": "weak",
@@ -731,8 +742,13 @@ class GraphRAGOrchestrator:
                 temperature=0.1,
                 model=self._a0_model,
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("A0 generation failed")
+            if "rate-limit" in str(exc).lower() or "429" in str(exc):
+                return (
+                    "I’m temporarily rate-limited by the language model provider, so I can’t "
+                    "complete this answer right now. Please try again shortly."
+                )
             return (
                 "I could not generate a complete graph-grounded draft answer. "
                 "Available evidence appears limited, so please refine the query."
@@ -775,18 +791,33 @@ class GraphRAGOrchestrator:
             logger.exception("Af validation failed")
             return a0_answer
 
-    async def _generate_general_answer(self, query: str) -> str:
+    async def _generate_general_answer(
+        self, query: str, history: list[dict] | None = None,
+    ) -> str:
         """Generate conversational response for non-biomedical queries."""
         system_prompt = (
             "You are PRO-MedGraph, a helpful assistant.\n"
             "Respond naturally and briefly to general user messages.\n"
             "If the user asks a medical question without specific disease details,\n"
-            "ask a clarifying follow-up and avoid definitive medical claims."
+            "ask a clarifying follow-up and avoid definitive medical claims.\n"
+            "If conversation history is provided, use it to give a contextual answer."
         )
+        # Build user prompt with optional history for context
+        parts: list[str] = []
+        if history:
+            recent = history[-6:]
+            convo = "\n".join(
+                f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:300]}"
+                for m in recent
+            )
+            parts.append(f"Conversation history:\n{convo}\n")
+        parts.append(f"User message:\n{query}")
+        user_prompt = "\n".join(parts)
+
         try:
             return await self._llm_service.generate_completion(
                 system_prompt=system_prompt,
-                user_prompt=f"User message:\n{query}",
+                user_prompt=user_prompt,
                 temperature=0.3,
                 model=self._a0_model,
             )
@@ -796,6 +827,50 @@ class GraphRAGOrchestrator:
                 "Hello! I am PRO-MedGraph. I can help with biomedical questions. "
                 "If you share a disease or treatment topic, I can provide a graph-grounded answer."
             )
+
+    # ── Co-reference resolution ──────────────────────────────────────────
+
+    async def _resolve_coreferences(self, query: str, history: list[dict]) -> str:
+        """Rewrite *query* into a self-contained sentence using conversation history.
+
+        If the query already looks self-contained the LLM returns it unchanged.
+        Only the last 6 exchanges are considered to limit token use.
+        """
+        recent = history[-6:]
+        convo_lines = "\n".join(
+            f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:300]}"
+            for m in recent
+        )
+
+        system_prompt = (
+            "You are a query rewriter. Given a conversation history and the "
+            "latest user message, rewrite the user message so it is fully "
+            "self-contained (resolve pronouns, 'it', 'that', 'the hadith you "
+            "mentioned', etc.). Keep the rewrite short — one sentence.\n"
+            "If the message is already self-contained, return it unchanged.\n"
+            "Output ONLY the rewritten query, nothing else."
+        )
+        user_prompt = (
+            f"Conversation history:\n{convo_lines}\n\n"
+            f"Latest user message: {query}\n\n"
+            f"Rewritten query:"
+        )
+
+        try:
+            rewritten = await self._llm_service.generate_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.0,
+                model=self._coref_model,
+            )
+            # Sanity: if the LLM returns garbage or something way too long, keep original
+            rewritten = (rewritten or "").strip().strip('"').strip("'").strip()
+            if not rewritten or len(rewritten) > len(query) * 4:
+                return query
+            return rewritten
+        except Exception:
+            logger.warning("Coreference resolution failed; using original query")
+            return query
 
     # ── Utility methods ────────────────────────────────────────────────────
 

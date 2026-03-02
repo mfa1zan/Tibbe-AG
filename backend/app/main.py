@@ -113,7 +113,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     try:
         # 1) Execute full GraphRAG orchestrator pipeline (safety already applied inside).
-        pipeline_result = await pipeline.process_user_query_with_context_async(request.query)
+        # Convert history models to plain dicts for the orchestrator.
+        history = [{"role": m.role, "content": m.content} for m in request.history]
+        pipeline_result = await pipeline.process_user_query_with_context_async(
+            request.query, history=history
+        )
         output = pipeline_result.get("output", {})
 
         # 2) Extract reasoning trace (attached by orchestrator stage 15).

@@ -1,8 +1,14 @@
 from pydantic import BaseModel, Field
 
 
+class HistoryMessage(BaseModel):
+    role: str = Field(..., pattern="^(user|bot)$")
+    content: str
+
+
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1)
+    history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
 
 
 class ConfidenceBreakdown(BaseModel):
