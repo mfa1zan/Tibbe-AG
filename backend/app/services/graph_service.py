@@ -207,17 +207,21 @@ def get_disease_subgraph(disease_name: str) -> dict:
 
 
 def get_hadith_for_disease(disease_name: str) -> list:
-    """Return hadith references connected to a disease with name/book/reference fields."""
+    """Return hadith references connected to a disease.
+
+    Schema-aligned fields:
+    - Hadith.name
+    - Reference.reference via (Reference)-[:HAS_HADITH]->(Hadith)
+    """
     driver = _get_driver()
 
     query = """
-    // Fetch hadith linked to disease and enrich with optional reference/book details.
+    // Fetch hadith linked to disease and enrich with optional reference details.
     MATCH (d:Disease)
     WHERE toLower(d.name) = toLower($disease_name)
     OPTIONAL MATCH (d)-[:MENTIONED_IN]->(h:Hadith)
     OPTIONAL MATCH (r:Reference)-[:HAS_HADITH]->(h)
     RETURN DISTINCT h.name AS name,
-           coalesce(h.book, r.book, "Unknown") AS book,
            coalesce(r.reference, "Unknown") AS reference
     LIMIT $limit
     """
@@ -235,7 +239,7 @@ def get_hadith_for_disease(disease_name: str) -> list:
             hadith_items.append(
                 {
                     "name": name,
-                    "book": row.get("book") or "Unknown",
+                    "book": "Unknown",
                     "reference": row.get("reference") or "Unknown",
                 }
             )

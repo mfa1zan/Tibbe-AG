@@ -67,6 +67,14 @@ _INGREDIENT_QUERY_PATTERN = re.compile(
     r"\b(ingredients?|herbs?|herbal|remed(?:y|ies)|food\s*items?|foods?|what\s+to\s+(?:eat|use|take|consume))\b",
     re.IGNORECASE,
 )
+_HADITH_QUERY_PATTERN = re.compile(
+    r"\b(hadith|hadees|hadeeth|sunnah|riwayat)\b|\b(reference|citation|source)\b.*\b(hadith|support)\b",
+    re.IGNORECASE,
+)
+_TECHNICAL_DETAIL_QUERY_PATTERN = re.compile(
+    r"\b(compound|compounds|chemical|chemicals|composition|constituent|constituents|mechanism|biochemical|mapping|drug\s+equivalent|equivalence|reasoning|evidence\s+trace|why)\b",
+    re.IGNORECASE,
+)
 _DRUG_QUERY_PATTERN = re.compile(
     r"\b(drug|drugs|medicine|medicines|medication|medications|pharmaceutical|pharmaceuticals|tablet|capsule|pill)\b",
     re.IGNORECASE,
@@ -160,6 +168,7 @@ class GraphRAGOrchestrator:
         self._a0_model = settings.llm_answer_model or settings.groq_model
         self._af_model = settings.llm_validator_model or settings.groq_model
         self._eval_model = settings.llm_judge_model or settings.groq_model
+        self._intent_model = settings.model_intent or settings.groq_model
         self._coref_model = settings.model_intent or settings.groq_model  # lightweight rewrite
 
         self._kg_schema = _load_kg_schema()
@@ -196,6 +205,7 @@ class GraphRAGOrchestrator:
     ) -> dict:
         """Extended 13-stage pipeline returning full context + reasoning trace."""
         clean_query = (query or "").strip()
+        original_query = clean_query
         pipeline_stages: list[str] = []
 
         if not clean_query:
@@ -209,6 +219,12 @@ class GraphRAGOrchestrator:
                 logger.info("Query rewritten: '%s' -> '%s'", clean_query, resolved)
                 clean_query = resolved
                 pipeline_stages.append("coreference_resolution")
+
+        followup_intent = "auto"
+        if history:
+            followup_intent = await self._classify_followup_intent(original_query, history)
+            if followup_intent != "auto":
+                pipeline_stages.append("followup_intent_classification")
 
         # ── Stage 1: General Query Check ───────────────────────────────────
         pipeline_stages.append("general_check")
@@ -309,8 +325,38 @@ class GraphRAGOrchestrator:
         if subgraph_error and primary_entity_type == "Disease":
             logger.warning("Subgraph error for disease='%s': %s", primary_entity_name, subgraph_error)
 
+        hadith_requested = (
+            self._is_hadith_query(original_query)
+            or self._is_hadith_query(clean_query)
+            or followup_intent == "hadith"
+        )
+        ingredient_requested = (
+            self._is_ingredient_query(original_query)
+            or self._is_ingredient_query(clean_query)
+            or followup_intent == "ingredient"
+        )
+
+        # ── Deterministic hadith shortcut (hadith/reference-focused queries) ─
+        if hadith_requested and disease:
+            hadith_answer = self._build_hadith_answer(reasoning, disease)
+            if hadith_answer:
+                pipeline_stages.append("deterministic_hadith_answer")
+                evidence_strength = self._compute_evidence_strength(reasoning)
+                confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
+                output = {
+                    "final_answer": hadith_answer,
+                    "evidence_strength": evidence_strength,
+                    "graph_paths_used": graph_paths_used,
+                    "confidence_score": confidence_score,
+                }
+                return self._wrap_context(
+                    clean_query, entities, reasoning,
+                    hadith_answer, hadith_answer, output, pipeline_stages,
+                    rationale_plan=rationale_result,
+                )
+
         # ── Deterministic ingredient shortcut ──────────────────────────────
-        if self._is_ingredient_query(clean_query) and disease:
+        if ingredient_requested and disease and not hadith_requested:
             direct_answer = self._build_ingredient_answer(reasoning, disease)
             if direct_answer:
                 pipeline_stages.append("deterministic_ingredient_answer")
@@ -662,6 +708,7 @@ class GraphRAGOrchestrator:
         primary_entity_type = meta.get("primary_entity_type", "Disease")
 
         if primary_entity_type == "Disease":
+            include_technical_details = self._is_technical_detail_query(query)
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
@@ -679,7 +726,12 @@ class GraphRAGOrchestrator:
                 "4. If Hadith evidence exists, include it with respectful framing.\n"
                 "5. End with a brief safety disclaimer recommending a healthcare professional.\n\n"
                 "NEVER output step numbers, headings like 'Step 1:', or chain-of-thought markers.\n"
-                "Write as a helpful, readable paragraph/list for the end user."
+                "NEVER say phrases like 'Based on the knowledge graph', 'According to the graph', "
+                "or mention internal retrieval pipelines unless the user explicitly asks about sources or method.\n"
+                f"Technical detail mode: {'ON' if include_technical_details else 'OFF'}.\n"
+                "When technical detail mode is OFF, do NOT include chemical compounds, biochemical mappings, "
+                "or drug-equivalent names. Keep it practical and user-friendly.\n"
+                "Write as a helpful, friendly answer tailored to the user's wording."
             )
         elif primary_entity_type == "Ingredient":
             system_prompt = (
@@ -769,6 +821,10 @@ class GraphRAGOrchestrator:
             "- Strip ALL step numbers, headings ('Step 1:', '## Step 2:', etc.), and chain-of-thought scaffolding.\n"
             "- Output a clean, conversational, well-structured answer suitable for a patient or end user.\n"
             "- Use bullet points or numbered lists only for ingredient/drug listings, not for reasoning steps.\n"
+            "- Do NOT mention internal systems such as 'knowledge graph', 'graph retrieval', or similar wording "
+            "unless the user explicitly asks for method/source details.\n"
+            "- Unless the user explicitly asks for technical details, remove chemical compounds, mapping labels, "
+            "and drug-equivalent lists from the final answer.\n"
             "- Return ONLY the final answer text — no meta-commentary."
         )
 
@@ -872,6 +928,52 @@ class GraphRAGOrchestrator:
             logger.warning("Coreference resolution failed; using original query")
             return query
 
+    async def _classify_followup_intent(self, query: str, history: list[dict]) -> str:
+        """Classify follow-up intent using conversation context.
+
+        Returns one of: hadith | ingredient | technical | general | auto
+        """
+        if not history:
+            return "auto"
+
+        recent = history[-6:]
+        convo_lines = "\n".join(
+            f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:240]}"
+            for m in recent
+        )
+
+        system_prompt = (
+            "You are an intent classifier for follow-up chat messages.\n"
+            "Choose exactly one label: hadith, ingredient, technical, general, auto.\n"
+            "Definitions:\n"
+            "- hadith: asks for hadith/sunnah/reference/citation support\n"
+            "- ingredient: asks what food/herb/remedy to use\n"
+            "- technical: asks for compounds/mechanism/mappings/reasoning details\n"
+            "- general: casual chat/greeting/non-medical\n"
+            "- auto: unclear/none of the above\n"
+            "Output ONLY the label."
+        )
+        user_prompt = (
+            f"Conversation history:\n{convo_lines}\n\n"
+            f"Latest user message: {query}\n\n"
+            "Label:"
+        )
+
+        try:
+            label = await self._llm_service.generate_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.0,
+                model=self._intent_model,
+            )
+            label = (label or "").strip().lower()
+            if label in {"hadith", "ingredient", "technical", "general", "auto"}:
+                return label
+            return "auto"
+        except Exception:
+            logger.warning("Follow-up intent classification failed; defaulting to auto")
+            return "auto"
+
     # ── Utility methods ────────────────────────────────────────────────────
 
     @staticmethod
@@ -890,8 +992,16 @@ class GraphRAGOrchestrator:
         return bool(_INGREDIENT_QUERY_PATTERN.search(query or ""))
 
     @staticmethod
+    def _is_hadith_query(query: str) -> bool:
+        return bool(_HADITH_QUERY_PATTERN.search(query or ""))
+
+    @staticmethod
     def _is_drug_query(query: str) -> bool:
         return bool(_DRUG_QUERY_PATTERN.search(query or ""))
+
+    @staticmethod
+    def _is_technical_detail_query(query: str) -> bool:
+        return bool(_TECHNICAL_DETAIL_QUERY_PATTERN.search(query or ""))
 
     def _build_ingredient_answer(self, reasoning: dict, disease_name: str) -> str | None:
         """Build direct ingredient list from KG data."""
@@ -925,8 +1035,44 @@ class GraphRAGOrchestrator:
         bullet_lines = "\n".join(f"{i + 1}. {name}" for i, name in enumerate(deduped[:25]))
         suffix = "" if len(deduped) <= 25 else f"\n\n(Showing top 25 of {len(deduped)} ingredients)"
         return (
-            f"Based on the knowledge graph, the ingredients associated with {disease_name} are:\n\n"
-            f"{bullet_lines}{suffix}"
+            f"If you’re experiencing {disease_name}, one traditional option you can consider is:\n\n"
+            f"{bullet_lines}{suffix}\n\n"
+            "If you want, I can also share hadith support or a deeper medical reasoning view."
+        )
+
+    def _build_hadith_answer(self, reasoning: dict, disease_name: str) -> str | None:
+        """Build hadith-only response for hadith/reference-focused follow-up queries."""
+        if not isinstance(reasoning, dict):
+            return None
+
+        hadith_refs = reasoning.get("HadithReferences", [])
+        if not isinstance(hadith_refs, list):
+            hadith_refs = []
+
+        cleaned: list[tuple[str, str]] = []
+        for item in hadith_refs:
+            if not isinstance(item, dict):
+                continue
+            text = item.get("name")
+            ref = item.get("reference")
+            if isinstance(text, str) and text.strip():
+                cleaned.append((text.strip(), ref.strip() if isinstance(ref, str) and ref.strip() else "Unknown"))
+
+        if not cleaned:
+            return (
+                f"I could not find a hadith reference for {disease_name} in the available data. "
+                "If you want, I can still share practical non-hadith guidance."
+            )
+
+        lines = []
+        for index, (text, reference) in enumerate(cleaned[:3], start=1):
+            lines.append(f"{index}. {text}\n   Reference: {reference}")
+        joined_lines = "\n".join(lines)
+
+        return (
+            f"Yes — here is hadith support related to {disease_name}:\n\n"
+            f"{joined_lines}\n\n"
+            "If you want, I can also provide a simple non-technical treatment summary."
         )
 
     @staticmethod
