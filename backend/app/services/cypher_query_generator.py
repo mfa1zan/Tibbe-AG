@@ -58,63 +58,57 @@ import asyncio
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Actual KG schema (sourced from knowledge_graph_schema.json)
+#  KG schema loading (schema-driven)
 # ═══════════════════════════════════════════════════════════════════════════════
-#
-#  Embedded here so the LLM system prompt always reflects reality and we
-#  don't need file I/O at import time.
+
+
+def _load_kg_schema() -> dict[str, Any]:
+    """Load the authoritative KG schema from knowledge_graph_schema.json."""
+    try:
+        project_root = Path(__file__).resolve().parents[3]
+        schema_path = project_root / "knowledge_graph_schema.json"
+        with open(schema_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, list) and raw:
+            first = raw[0]
+            if isinstance(first, dict):
+                schema = first.get("FULL_KG_SCHEMA_JSON")
+                if isinstance(schema, dict):
+                    return schema
+        if isinstance(raw, dict):
+            return raw
+    except Exception:
+        logger.exception("Failed to load KG schema for Cypher generation")
+    return {}
+
+
+_KG_SCHEMA: dict[str, Any] = _load_kg_schema()
 
 KG_NODE_LABELS: list[str] = [
-    "Disease",
-    "DiseaseCategory",
-    "Ingredient",
-    "Cure",
-    "ChemicalCompound",
-    "Hadith",
-    "Reference",
-    "Drug",
-    "DrugChemicalCompound",
-    "Book",
+    str(label).strip() for label in (_KG_SCHEMA.get("nodeLabels") or [])
+    if isinstance(label, str) and str(label).strip()
 ]
-
 KG_RELATIONSHIP_TYPES: list[str] = [
-    "HAS_DISEASE",       # DiseaseCategory → Disease
-    "HAS_HADITH",        # Reference → Hadith
-    "CONTAINS",          # Ingredient → ChemicalCompound ; Drug → DrugChemicalCompound
-    "CURES",             # Ingredient → Disease
-    "MENTIONED_IN",      # Disease → Hadith
-    "IS_IN_BOOK",        # Drug → Book
-    "IS_IDENTICAL_TO",   # ChemicalCompound → DrugChemicalCompound (strength: IDENTICAL)
-    "IS_LIKELY_EQUIVALENT_TO",  # ChemicalCompound → DrugChemicalCompound (strength: LIKELY)
-    "IS_WEAK_MATCH_TO",         # ChemicalCompound → DrugChemicalCompound (strength: WEAK)
+    str(rel).strip() for rel in (_KG_SCHEMA.get("relationshipTypes") or [])
+    if isinstance(rel, str) and str(rel).strip()
 ]
 
-KG_RELATIONSHIP_PROPERTIES: dict[str, list[str]] = {
-    "CONTAINS": ["source", "quantity", "unit", "food_part"],
-}
+KG_RELATIONSHIP_PROPERTIES: dict[str, list[str]] = {}
+for item in (_KG_SCHEMA.get("relationshipProperties") or []):
+    if not isinstance(item, dict):
+        continue
+    rel = item.get("relationship")
+    prop = item.get("property")
+    if isinstance(rel, str) and rel.strip() and isinstance(prop, str) and prop.strip():
+        KG_RELATIONSHIP_PROPERTIES.setdefault(rel.strip(), []).append(prop.strip())
 
-# Compact text representation injected into the LLM system prompt.
-_SCHEMA_TEXT: str = (
-    "Node labels: " + ", ".join(KG_NODE_LABELS) + "\n"
-    "Relationship types:\n"
-    "  DiseaseCategory -[:HAS_DISEASE]-> Disease\n"
-    "  Ingredient -[:CURES]-> Disease\n"
-    "  Ingredient -[:CONTAINS]-> ChemicalCompound\n"
-    "  ChemicalCompound -[:IS_IDENTICAL_TO]-> DrugChemicalCompound\n"
-    "  ChemicalCompound -[:IS_LIKELY_EQUIVALENT_TO]-> DrugChemicalCompound\n"
-    "  ChemicalCompound -[:IS_WEAK_MATCH_TO]-> DrugChemicalCompound\n"
-    "  Drug -[:CONTAINS]-> DrugChemicalCompound\n"
-    "  Drug -[:IS_IN_BOOK]-> Book\n"
-    "  Disease -[:MENTIONED_IN]-> Hadith\n"
-    "  Reference -[:HAS_HADITH]-> Hadith\n"
-    "CONTAINS relationship properties: source, quantity, unit, food_part\n"
-    "All nodes have a 'name' property (String). Reference has 'reference'. Book has 'name' and 'link'."
-)
+_SCHEMA_TEXT: str = json.dumps(_KG_SCHEMA, ensure_ascii=False, indent=2)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Cypher validation
@@ -133,6 +127,25 @@ _DESTRUCTIVE_KEYWORDS: re.Pattern = re.compile(
 
 # Minimum tokens a valid read query must contain.
 _MIN_QUERY_TOKENS: int = 3
+
+_NODE_LABEL_TOKEN: re.Pattern = re.compile(r":([A-Z][A-Za-z0-9_]*)")
+_REL_TYPE_TOKEN: re.Pattern = re.compile(r":([A-Z][A-Z0-9_]*)")
+
+
+def _extract_labels_from_cypher(query: str) -> set[str]:
+    labels: set[str] = set()
+    for node_content in re.findall(r"\(([^)]*)\)", query):
+        for label in _NODE_LABEL_TOKEN.findall(node_content):
+            labels.add(label)
+    return labels
+
+
+def _extract_relationship_types_from_cypher(query: str) -> set[str]:
+    rel_types: set[str] = set()
+    for rel_content in re.findall(r"\[([^\]]*)\]", query):
+        for rel_type in _REL_TYPE_TOKEN.findall(rel_content):
+            rel_types.add(rel_type)
+    return rel_types
 
 
 def validate_cypher(query: str) -> str:
@@ -189,6 +202,26 @@ def validate_cypher(query: str) -> str:
     # -- Must contain at least one node pattern ----------------------------
     if "(" not in stripped:
         raise CypherSyntaxError("Query has no node pattern — missing '(…)'")
+
+    # -- Schema-constrained label/relationship validation -------------------
+    allowed_labels = set(KG_NODE_LABELS)
+    allowed_rels = set(KG_RELATIONSHIP_TYPES)
+
+    if allowed_labels:
+        used_labels = _extract_labels_from_cypher(stripped)
+        unknown_labels = sorted(label for label in used_labels if label not in allowed_labels)
+        if unknown_labels:
+            raise CypherSyntaxError(
+                f"Query uses node labels not present in schema: {', '.join(unknown_labels)}"
+            )
+
+    if allowed_rels:
+        used_rels = _extract_relationship_types_from_cypher(stripped)
+        unknown_rels = sorted(rel for rel in used_rels if rel not in allowed_rels)
+        if unknown_rels:
+            raise CypherSyntaxError(
+                f"Query uses relationship types not present in schema: {', '.join(unknown_rels)}"
+            )
 
     logger.debug("Cypher validation passed (%d chars)", len(stripped))
     return stripped
@@ -484,7 +517,38 @@ _TEMPLATE_DISPATCH: dict[str, Any] = {
 _LLM_SYSTEM_PROMPT: str = (
     "You are a Neo4j Cypher query generator for the PRO-MedGraph biomedical "
     "knowledge graph.\n\n"
-    f"SCHEMA:\n{_SCHEMA_TEXT}\n\n"
+    "Schema-driven KG retrieval enforced.\n"
+    "You MUST only use node labels, relationship types, and properties that appear in the schema JSON below.\n"
+    "If a requested concept is absent from schema, return a minimal valid read query using existing schema entities only.\n\n"
+    f"SCHEMA_JSON_FULL:\n{_SCHEMA_TEXT}\n\n"
+    "Schema-Driven Canonical KG Query Patterns\n"
+    "A) Drug retrieval for a Disease\n"
+    "- Use when: user asks for drug for disease, medicine for disease, or treatment-drug mapping.\n"
+    "- Corresponding intent: drug retrieval / treatment mapping.\n"
+    "- Required traversal pattern:\n"
+    "  (i:Ingredient)-[:CURES]->(d:Disease)\n"
+    "  (i)-[:CONTAINS]->(cc:ChemicalCompound)\n"
+    "  (cc)-[:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO|IS_WEAK_MATCH_TO]->(dcc:DrugChemicalCompound)\n"
+    "  (drug:Drug)-[:CONTAINS]->(dcc)\n"
+    "- Dynamic parameters to inject: $entity_name (disease name), optional $entity_name_2 if a second entity is required.\n\n"
+    "B) Hadith mentioning a Disease\n"
+    "- Use when: user asks hadith about disease or disease mentioned in hadith.\n"
+    "- Corresponding intent: hadith retrieval for disease.\n"
+    "- Required traversal pattern:\n"
+    "  (d:Disease)-[:MENTIONED_IN]->(h:Hadith)\n"
+    "- Dynamic parameters to inject: $entity_name (disease name).\n\n"
+    "C) Reference of a Hadith\n"
+    "- Use when: user asks reference of hadith or hadith source.\n"
+    "- Corresponding intent: hadith reference lookup.\n"
+    "- Required traversal pattern:\n"
+    "  (r:Reference)-[:HAS_HADITH]->(h:Hadith)\n"
+    "- Dynamic parameters to inject: $entity_name (hadith text/name), optional $entity_name_2 when a paired entity is needed.\n\n"
+    "D) Book of a Drug\n"
+    "- Use when: user asks which book contains this drug or source book of drug.\n"
+    "- Corresponding intent: drug book/source lookup.\n"
+    "- Required traversal pattern:\n"
+    "  (drug:Drug)-[:IS_IN_BOOK]->(b:Book)\n"
+    "- Dynamic parameters to inject: $entity_name (drug name).\n\n"
     "RULES:\n"
     "1. Return ONLY a valid Cypher READ query — no markdown fences, no "
     "   explanations, no extra text.\n"
@@ -497,6 +561,11 @@ _LLM_SYSTEM_PROMPT: str = (
     "6. Add a LIMIT clause (max 300) to prevent unbounded results.\n"
     "7. Return meaningful aliases in the RETURN clause.\n"
     "8. For multi-hop queries expand up to the number of hops specified.\n"
+    "9. Never invent labels, relationships, or properties not present in SCHEMA_JSON_FULL.\n"
+    "10. Always validate labels and relationships against SCHEMA_JSON_FULL before finalizing the query.\n"
+    "11. Never assume a direct Disease -> Drug edge; use canonical intermediary traversals when drug mapping is requested.\n"
+    "12. Prefer strongest equivalence first when ranking or filtering: IS_IDENTICAL_TO > IS_LIKELY_EQUIVALENT_TO > IS_WEAK_MATCH_TO.\n"
+    "13. If SCHEMA_JSON_FULL does not support a requested pattern, regenerate a schema-valid query instead of inventing relationships.\n"
 )
 
 MAX_LLM_RETRIES: int = 2

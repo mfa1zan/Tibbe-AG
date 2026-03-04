@@ -34,6 +34,7 @@ STRENGTH_MAP: dict[str, float] = {
     "LIKELY": 0.7,
     "WEAK": 0.35,
 }
+NEUTRAL_STRENGTH_SCORE = 0.55
 
 # Path-depth bucketing (hop count → score)
 _DEPTH_SCORE: dict[int, float] = {
@@ -125,6 +126,44 @@ def _compute_path_depth_score(hop_count: int) -> float:
     return _DEPTH_SCORE.get(min(hop_count, 4), 1.0)
 
 
+def _normalize_similarity_label(value: Any) -> str:
+    text = _safe_str(value)
+    if not text:
+        return "UNKNOWN"
+    upper = text.upper()
+    if "IDENTICAL" in upper:
+        return "IDENTICAL"
+    if "LIKELY" in upper or "EQUIVALENT" in upper:
+        return "LIKELY"
+    if "WEAK" in upper or "MATCH" in upper:
+        return "WEAK"
+    return "UNKNOWN"
+
+
+def _compute_numeric_evidence_score(value: Any) -> float:
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        if numeric <= 0:
+            return 0.5
+        if numeric <= 1:
+            return numeric
+        return round(numeric / (numeric + 1.0), 4)
+
+    if isinstance(value, dict):
+        scores: list[float] = []
+        for item in value.values():
+            if isinstance(item, (int, float)):
+                scores.append(_compute_numeric_evidence_score(item))
+        if scores:
+            return round(sum(scores) / len(scores), 4)
+
+    return 0.5
+
+
+def _is_full_ontology_path(path: CausalPath) -> bool:
+    return bool(path.ingredient and path.compound and path.drug_compound and path.drug)
+
+
 def _count_hops(path: CausalPath) -> int:
     """Count non-null nodes in the traversal chain."""
     count = 0
@@ -137,22 +176,38 @@ def _count_hops(path: CausalPath) -> int:
 # ── Core scoring ───────────────────────────────────────────────────────────────
 
 
-def score_causal_path(path: CausalPath) -> CausalPath:
+def score_causal_path(path: CausalPath, numeric_evidence: Any = None) -> CausalPath:
     """
     Fill in all sub-scores and the composite causal_score for a single path.
     Mutates the path in-place and returns it for chaining.
     """
-    path.mapping_strength = STRENGTH_MAP.get(path.mapping_strength_label, 0.35)
+    similarity_label = _normalize_similarity_label(path.mapping_strength_label)
+    mapping_strength_score = STRENGTH_MAP.get(similarity_label, NEUTRAL_STRENGTH_SCORE)
+
+    similarity_presence_score = 1.0 if similarity_label in STRENGTH_MAP else 0.5
+    numeric_evidence_score = _compute_numeric_evidence_score(numeric_evidence)
+
+    # Reasoning layer is schema-aligned and ontology-aware, but no longer brittle.
+    path.mapping_strength_label = similarity_label
+    path.mapping_strength = mapping_strength_score
     path.hop_count = _count_hops(path)
     path.path_depth_score = _compute_path_depth_score(path.hop_count)
     path.mechanism_score = _compute_mechanism_overlap(path.compound, path.drug_compound)
 
+    if _is_full_ontology_path(path):
+        ontology_path_factor = 1.0
+    else:
+        ontology_path_factor = 0.6
+
     path.causal_score = round(
-        0.5 * path.mapping_strength
-        + 0.3 * path.mechanism_score
-        + 0.2 * path.path_depth_score,
+        0.35 * path.mapping_strength
+        + 0.20 * path.mechanism_score
+        + 0.15 * path.path_depth_score
+        + 0.20 * similarity_presence_score
+        + 0.10 * numeric_evidence_score,
         4,
     )
+    path.causal_score = round(path.causal_score * ontology_path_factor, 4)
 
     # Build human-readable traversal chain
     chain: list[str] = []
@@ -180,16 +235,18 @@ def build_causal_paths_from_reasoning(reasoning: dict) -> list[CausalPath]:
     (ingredient/drug-centric).
     """
     paths: list[CausalPath] = []
-    mappings = reasoning.get("BiochemicalMappings", [])
+    mappings = reasoning.get("BiochemicalMappings", []) if isinstance(reasoning, dict) else []
     if not isinstance(mappings, list):
         return paths
 
     # Determine disease name(s) from reasoning context
-    disease_obj = reasoning.get("Disease") or {}
+    disease_obj = reasoning.get("Disease") if isinstance(reasoning, dict) else {}
+    if not isinstance(disease_obj, dict):
+        disease_obj = {}
     primary_disease = _safe_str(disease_obj.get("name")) if isinstance(disease_obj, dict) else None
 
     # For ingredient/drug-centric queries, diseases may be a list
-    diseases_list = reasoning.get("Diseases", [])
+    diseases_list = reasoning.get("Diseases", []) if isinstance(reasoning, dict) else []
     fallback_disease = None
     if not primary_disease and isinstance(diseases_list, list) and diseases_list:
         first = diseases_list[0] if diseases_list else {}
@@ -201,14 +258,20 @@ def build_causal_paths_from_reasoning(reasoning: dict) -> list[CausalPath]:
         if not isinstance(mapping, dict):
             continue
 
-        ingredient_obj = mapping.get("ingredient", {}) or {}
-        compound_obj = mapping.get("chemical_compound", {}) or {}
-        drug_compound_obj = mapping.get("drug_chemical_compound", {}) or {}
-        drug_obj = mapping.get("drug", {}) or {}
+        ingredient_obj = mapping.get("ingredient", {}) if isinstance(mapping.get("ingredient"), dict) else {}
+        compound_obj = mapping.get("chemical_compound", {}) if isinstance(mapping.get("chemical_compound"), dict) else {}
+        drug_compound_obj = (
+            mapping.get("drug_chemical_compound", {})
+            if isinstance(mapping.get("drug_chemical_compound"), dict)
+            else {}
+        )
+        drug_obj = mapping.get("drug", {}) if isinstance(mapping.get("drug"), dict) else {}
 
-        strength_label = mapping.get("mapping_strength", "WEAK")
-        if strength_label not in STRENGTH_MAP:
-            strength_label = "WEAK"
+        strength_label = _normalize_similarity_label(
+            mapping.get("similarity_relation_type")
+            or mapping.get("mapping_strength")
+            or drug_compound_obj.get("mapping_strength")
+        )
 
         path = CausalPath(
             disease=disease_name,
@@ -218,7 +281,7 @@ def build_causal_paths_from_reasoning(reasoning: dict) -> list[CausalPath]:
             drug=_safe_str(drug_obj.get("name")),
             mapping_strength_label=strength_label,
         )
-        score_causal_path(path)
+        score_causal_path(path, numeric_evidence=mapping.get("numeric_evidence"))
         paths.append(path)
 
     return paths
@@ -238,14 +301,31 @@ def summarize_causal_ranking(paths: list[CausalPath]) -> CausalRankingSummary:
     mechanism_scores = [p.mechanism_score for p in paths]
     depths = [float(p.hop_count) for p in paths]
 
+    strong_count = 0
+    moderate_count = 0
+    weak_count = 0
+    for path in paths:
+        if path.mapping_strength_label == "IDENTICAL":
+            strong_count += 1
+        elif path.mapping_strength_label == "LIKELY":
+            moderate_count += 1
+        elif path.mapping_strength_label == "WEAK":
+            weak_count += 1
+        elif path.mapping_strength >= 0.85:
+            strong_count += 1
+        elif path.mapping_strength >= 0.55:
+            moderate_count += 1
+        else:
+            weak_count += 1
+
     return CausalRankingSummary(
         total_paths=len(paths),
         avg_causal_score=round(sum(scores) / len(scores), 4),
         max_causal_score=round(max(scores), 4),
         min_causal_score=round(min(scores), 4),
-        strong_paths=sum(1 for p in paths if p.mapping_strength_label == "IDENTICAL"),
-        moderate_paths=sum(1 for p in paths if p.mapping_strength_label == "LIKELY"),
-        weak_paths=sum(1 for p in paths if p.mapping_strength_label == "WEAK"),
+        strong_paths=strong_count,
+        moderate_paths=moderate_count,
+        weak_paths=weak_count,
         avg_mechanism_score=round(sum(mechanism_scores) / len(mechanism_scores), 4),
         avg_path_depth=round(sum(depths) / len(depths), 2),
     )

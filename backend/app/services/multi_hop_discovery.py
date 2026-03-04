@@ -14,7 +14,9 @@ zero biochemical mappings.
 
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from functools import lru_cache
@@ -24,6 +26,78 @@ from neo4j import GraphDatabase
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+def _load_kg_schema() -> dict[str, Any]:
+    try:
+        project_root = Path(__file__).resolve().parents[3]
+        schema_path = project_root / "knowledge_graph_schema.json"
+        with open(schema_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, list) and raw and isinstance(raw[0], dict):
+            schema = raw[0].get("FULL_KG_SCHEMA_JSON")
+            if isinstance(schema, dict):
+                return schema
+        if isinstance(raw, dict):
+            return raw
+    except Exception:
+        logger.exception("Failed to load KG schema for multi-hop discovery")
+    return {}
+
+
+_KG_SCHEMA: dict[str, Any] = _load_kg_schema()
+
+
+def _schema_label(name: str) -> str:
+    labels = _KG_SCHEMA.get("nodeLabels") or []
+    if isinstance(labels, list) and name in labels:
+        return name
+    return name
+
+
+def _relationships_between(from_label: str, to_label: str) -> list[str]:
+    rels: list[str] = []
+    for edge in (_KG_SCHEMA.get("relationshipStructure") or []):
+        if not isinstance(edge, dict):
+            continue
+        rel = edge.get("relationship")
+        from_nodes = edge.get("from") or []
+        to_nodes = edge.get("to") or []
+        if isinstance(rel, str) and from_label in from_nodes and to_label in to_nodes:
+            rels.append(rel)
+    return rels
+
+
+def _name_property(label: str) -> str:
+    for node_prop in (_KG_SCHEMA.get("nodeProperties") or []):
+        if not isinstance(node_prop, dict):
+            continue
+        labels = node_prop.get("labels") or []
+        prop = node_prop.get("property")
+        if label in labels and prop == "name":
+            return "name"
+    return "name"
+
+
+def _first_relationship_between(from_label: str, to_label: str) -> str | None:
+    rels = _relationships_between(from_label, to_label)
+    return rels[0] if rels else None
+
+
+def _typed_rel(rel_type: str | None, *, variable: str | None = None) -> str:
+    if rel_type and variable:
+        return f"[{variable}:{rel_type}]"
+    if rel_type:
+        return f"[:{rel_type}]"
+    if variable:
+        return f"[{variable}]"
+    return "[]"
+
+
+def _typed_rel_union(rel_types: list[str], *, variable: str) -> str:
+    if rel_types:
+        return f"[{variable}:{'|'.join(rel_types)}]"
+    return f"[{variable}]"
 
 
 @lru_cache(maxsize=1)
@@ -46,10 +120,29 @@ def discover_indirect_compound_links(disease_name: str) -> dict[str, Any]:
     """
     driver = _get_driver()
 
+    # Schema-driven KG retrieval enforced.
+    disease_label = _schema_label("Disease")
+    ingredient_label = _schema_label("Ingredient")
+    chemical_label = _schema_label("ChemicalCompound")
+    drug_chemical_label = _schema_label("DrugChemicalCompound")
+    drug_label = _schema_label("Drug")
+
+    disease_name_prop = _name_property(disease_label)
+
+    cures_rel = _first_relationship_between(ingredient_label, disease_label)
+    ingredient_contains_rel = _first_relationship_between(ingredient_label, chemical_label)
+    drug_contains_rel = _first_relationship_between(drug_label, drug_chemical_label)
+    similarity_rels = _relationships_between(chemical_label, drug_chemical_label)
+
+    cures_pattern = _typed_rel(cures_rel)
+    ingredient_contains_pattern = _typed_rel(ingredient_contains_rel)
+    drug_contains_pattern = _typed_rel(drug_contains_rel)
+    similarity_pattern = _typed_rel_union(similarity_rels, variable="rel")
+
     # Step 1: Find compounds from ingredients that cure this disease
-    step1_query = """
-    MATCH (d:Disease)<-[:CURES]-(i:Ingredient)-[:CONTAINS]->(cc:ChemicalCompound)
-    WHERE toLower(d.name) = toLower($disease_name)
+    step1_query = f"""
+        MATCH (d:{disease_label})<-{cures_pattern}-(i:{ingredient_label})-{ingredient_contains_pattern}->(cc:{chemical_label})
+    WHERE toLower(d.{disease_name_prop}) = toLower($disease_name)
     RETURN DISTINCT elementId(cc) AS cc_id, cc.name AS cc_name,
            elementId(i) AS ing_id, i.name AS ing_name
     LIMIT 50
@@ -57,11 +150,11 @@ def discover_indirect_compound_links(disease_name: str) -> dict[str, Any]:
 
     # Step 2: From those compounds, find any DrugChemicalCompound links
     # (including very weak ones) and the drugs they belong to
-    step2_query = """
-    MATCH (cc:ChemicalCompound)
+    step2_query = f"""
+    MATCH (cc:{chemical_label})
     WHERE elementId(cc) IN $compound_ids
-    OPTIONAL MATCH (cc)-[rel:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO|IS_WEAK_MATCH_TO]->(dcc:DrugChemicalCompound)
-    OPTIONAL MATCH (drug:Drug)-[:CONTAINS]->(dcc)
+    OPTIONAL MATCH (cc)-{similarity_pattern}->(dcc:{drug_chemical_label})
+    OPTIONAL MATCH (drug:{drug_label})-{drug_contains_pattern}->(dcc)
     RETURN elementId(cc) AS cc_id, cc.name AS cc_name,
            elementId(dcc) AS dcc_id, dcc.name AS dcc_name,
            type(rel) AS rel_type,
@@ -71,18 +164,18 @@ def discover_indirect_compound_links(disease_name: str) -> dict[str, Any]:
 
     # Step 3: Exploratory — find OTHER ingredients sharing compounds
     # with the disease's ingredients (indirect 2-hop connection)
-    step3_query = """
-    MATCH (d:Disease)<-[:CURES]-(i1:Ingredient)-[:CONTAINS]->(cc:ChemicalCompound)
-    WHERE toLower(d.name) = toLower($disease_name)
+    step3_query = f"""
+    MATCH (d:{disease_label})<-{cures_pattern}-(i1:{ingredient_label})-{ingredient_contains_pattern}->(cc:{chemical_label})
+    WHERE toLower(d.{disease_name_prop}) = toLower($disease_name)
     WITH COLLECT(DISTINCT cc) AS disease_compounds
     UNWIND disease_compounds AS cc
-    MATCH (cc)<-[:CONTAINS]-(i2:Ingredient)
-    WHERE NOT (i2)-[:CURES]->(d:Disease {name: $disease_name})
+    MATCH (cc)<-{ingredient_contains_pattern}-(i2:{ingredient_label})
+    WHERE NOT (i2)-{cures_pattern}->(d:{disease_label} {{{disease_name_prop}: $disease_name}})
     WITH i2, COLLECT(DISTINCT cc.name) AS shared_compounds
     WHERE size(shared_compounds) >= 1
-    MATCH (i2)-[:CONTAINS]->(cc2:ChemicalCompound)
-    OPTIONAL MATCH (cc2)-[rel:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO|IS_WEAK_MATCH_TO]->(dcc:DrugChemicalCompound)
-    OPTIONAL MATCH (drug:Drug)-[:CONTAINS]->(dcc)
+    MATCH (i2)-{ingredient_contains_pattern}->(cc2:{chemical_label})
+    OPTIONAL MATCH (cc2)-{similarity_pattern}->(dcc:{drug_chemical_label})
+    OPTIONAL MATCH (drug:{drug_label})-{drug_contains_pattern}->(dcc)
     RETURN DISTINCT i2.name AS indirect_ingredient,
            shared_compounds AS shared_compounds,
            cc2.name AS exploratory_compound,
