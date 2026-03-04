@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ChatHistory from './components/ChatHistory';
 import ChatInput from './components/ChatInput';
 import ThemeToggle from './components/ThemeToggle';
 import { ThemeProvider } from './context/ThemeContext';
-import { sendMessageToChatApi } from './api';
+import { normalizeChatError, sendMessageToChatApi } from './api';
 import './App.css';
 
 const createMessage = (role, content, metadata = {}) => ({
@@ -28,6 +28,11 @@ function AppShell() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [inputValue, setInputValue] = useState('');
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const handleSendMessage = useCallback(
     async (messageText) => {
@@ -46,17 +51,15 @@ function AppShell() {
 
       try {
         // Build conversation history for co-reference resolution (last 10 messages)
-        const historyForApi = messages
+        const historyForApi = [...messagesRef.current, optimisticMessage]
           .slice(-10)
           .map((m) => ({ role: m.role === 'bot' ? 'bot' : 'user', content: m.content }));
 
-        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety, reasoningTrace } = await sendMessageToChatApi(
-          messageText,
-          {
+        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety, reasoningTrace } =
+          await sendMessageToChatApi(messageText, {
             usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true',
             history: historyForApi
-          }
-        );
+          });
 
         setMessages((current) => [
           ...current,
@@ -69,8 +72,9 @@ function AppShell() {
           })
         ]);
       } catch (error) {
+        const normalizedError = normalizeChatError(error);
         setMessages((current) => current.filter((item) => item.id !== optimisticMessage.id));
-        setError(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
+        setError(normalizedError.userMessage);
       } finally {
         setIsLoading(false);
       }
