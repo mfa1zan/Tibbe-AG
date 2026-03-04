@@ -15,6 +15,7 @@ const chatResponseSchema = z.object({
 export const CHAT_API_ERROR_CODE = {
   NETWORK: 'network',
   TIMEOUT: 'timeout',
+  CANCELLED: 'cancelled',
   RATE_LIMIT: 'rate_limit',
   SERVER: 'server',
   CLIENT: 'client',
@@ -34,6 +35,9 @@ export class ChatApiError extends Error {
 
 function buildUserMessage(error) {
   if (error instanceof ChatApiError) {
+    if (error.code === CHAT_API_ERROR_CODE.CANCELLED) {
+      return 'Generation was cancelled.';
+    }
     if (error.code === CHAT_API_ERROR_CODE.NETWORK) {
       return 'Unable to connect to backend. Start FastAPI on port 8010 and try again.';
     }
@@ -72,6 +76,47 @@ export function normalizeChatError(error) {
     userMessage: buildUserMessage(normalized),
     details: normalized.details
   };
+}
+
+function ensureNotAborted(signal) {
+  if (signal?.aborted) {
+    throw new ChatApiError('Chat request cancelled', {
+      code: CHAT_API_ERROR_CODE.CANCELLED,
+      retriable: true
+    });
+  }
+}
+
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    ensureNotAborted(signal);
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      cleanup();
+      reject(
+        new ChatApiError('Chat request cancelled', {
+          code: CHAT_API_ERROR_CODE.CANCELLED,
+          retriable: true
+        })
+      );
+    };
+
+    const cleanup = () => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
 
 export async function sendMessageToChatApi(message, options = {}) {
@@ -178,4 +223,32 @@ export async function sendMessageToChatApi(message, options = {}) {
         ? data.structured_fields
         : null
   };
+}
+
+export async function streamMessageToChatApi(message, options = {}) {
+  const {
+    onChunk,
+    streamChunkSize = 24,
+    streamChunkDelayMs = 12,
+    ...sendOptions
+  } = options;
+
+  const response = await sendMessageToChatApi(message, sendOptions);
+  const text = response.reply ?? '';
+
+  if (typeof onChunk !== 'function' || text.length === 0) {
+    return response;
+  }
+
+  const chunkSize = Math.max(1, streamChunkSize);
+  for (let index = 0; index < text.length; index += chunkSize) {
+    ensureNotAborted(sendOptions.signal);
+    const delta = text.slice(index, index + chunkSize);
+    onChunk(delta);
+    if (index + chunkSize < text.length) {
+      await sleep(streamChunkDelayMs, sendOptions.signal);
+    }
+  }
+
+  return response;
 }

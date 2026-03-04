@@ -3,6 +3,7 @@ import './ChatBubble.css';
 
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
+  const displayText = message.content || (message.isStreaming ? '...' : '');
   const hasConfidence = typeof message.confidenceScore === 'number';
   const hasPaths = Number.isFinite(message.graphPathsUsed);
   const hasEvidenceStrength = typeof message.evidenceStrength === 'string' && message.evidenceStrength.length > 0;
@@ -18,7 +19,7 @@ function ChatBubble({ message }) {
         className={`chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-bot'}`}
         style={isUser ? { backgroundColor: 'var(--primary-color)' } : undefined}
       >
-        <p className="chat-message-text">{message.content}</p>
+        <p className="chat-message-text">{displayText}</p>
         {showMeta ? (
           <p className="chat-provenance">
             Evidence: {hasEvidenceStrength ? message.evidenceStrength : 'weak'}

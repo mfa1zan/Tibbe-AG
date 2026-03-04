@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import './ChatInput.css';
 
-function ChatInput({ value, onChange, onSend, disabled, error }) {
+function ChatInput({ value, onChange, onSend, onCancel, disabled, isGenerating, error }) {
   const inputRef = useRef(null);
 
   // Auto-focus the input field whenever it becomes enabled or value is cleared
@@ -40,6 +40,16 @@ function ChatInput({ value, onChange, onSend, disabled, error }) {
           >
             Send
           </button>
+          {isGenerating ? (
+            <button
+              type="button"
+              aria-label="Stop generation"
+              onClick={onCancel}
+              className="chat-cancel-button"
+            >
+              Stop
+            </button>
+          ) : null}
         </form>
         {error ? <p className="chat-input-error">{error}</p> : null}
       </div>

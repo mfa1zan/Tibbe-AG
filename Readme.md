@@ -210,10 +210,11 @@ Implemented baseline:
 - Runtime API payload validation + normalized frontend error handling
 - Safer conversation history composition in chat send flow
 - Project-wide ESLint command + configuration
+- Streaming-capable frontend rendering (incremental assistant output playback)
+- User-controlled stop/cancel generation action in chat input
 
 Planned next modernization steps:
 
-- Streaming responses in chat UI
 - Persistent message/session storage
 - Structured field rendering in chat bubbles
 - Markdown rendering with sanitization
