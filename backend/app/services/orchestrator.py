@@ -3,7 +3,7 @@ PRO-MedGraph GraphRAG Orchestrator — Research-Grade Pipeline (v2).
 
 Implements the full 13-stage pipeline:
 
-    1.  General Check           – bypass KG for greetings
+    1.  Intent Classification   – model-driven query intent labeling
     2.  Entity Extraction       – LLM + fuzzy hybrid
     3.  Rationale Plan          – RAG2-style LLM reasoning plan
     4.  Intent Routing          – Disease > Ingredient > Drug priority
@@ -30,7 +30,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
@@ -56,28 +55,6 @@ logger = logging.getLogger(__name__)
 FALLBACK_MESSAGE = (
     "PRO-MedGraph could not fully process your request right now. "
     "Please try again with a more specific disease or treatment query."
-)
-
-_GENERAL_QUERY_PATTERN = re.compile(
-    r"^(hi|hello|hey|salam|assalam\s*o\s*alaikum|thanks|thank\s*you|ok|okay|yo|sup|how are you)"
-    r"(?:[\s!,.?]*)$",
-    re.IGNORECASE,
-)
-_INGREDIENT_QUERY_PATTERN = re.compile(
-    r"\b(ingredients?|herbs?|herbal|remed(?:y|ies)|food\s*items?|foods?|what\s+to\s+(?:eat|use|take|consume))\b",
-    re.IGNORECASE,
-)
-_HADITH_QUERY_PATTERN = re.compile(
-    r"\b(hadith|hadees|hadeeth|sunnah|riwayat)\b|\b(reference|citation|source)\b.*\b(hadith|support)\b",
-    re.IGNORECASE,
-)
-_TECHNICAL_DETAIL_QUERY_PATTERN = re.compile(
-    r"\b(compound|compounds|chemical|chemicals|composition|constituent|constituents|mechanism|biochemical|mapping|drug\s+equivalent|equivalence|reasoning|evidence\s+trace|why)\b",
-    re.IGNORECASE,
-)
-_DRUG_QUERY_PATTERN = re.compile(
-    r"\b(drug|drugs|medicine|medicines|medication|medications|pharmaceutical|pharmaceuticals|tablet|capsule|pill)\b",
-    re.IGNORECASE,
 )
 
 # ── KG Schema ──────────────────────────────────────────────────────────────────
@@ -212,6 +189,11 @@ class GraphRAGOrchestrator:
             fallback = self._fallback_response("Empty query")
             return self._wrap_context(clean_query, {}, {}, "", fallback["final_answer"], fallback, pipeline_stages)
 
+        # Static routing removed: intent and response shaping are model-driven.
+        # Execution order:
+        #   co-reference rewrite -> intent model -> entity extraction -> KG retrieval
+        #   -> reasoning/causal/dosage -> A0 -> Af -> faith/safety -> return
+
         # ── Stage 0: Co-reference resolution via conversation history ──────
         if history:
             resolved = await self._resolve_coreferences(clean_query, history)
@@ -220,17 +202,12 @@ class GraphRAGOrchestrator:
                 clean_query = resolved
                 pipeline_stages.append("coreference_resolution")
 
-        followup_intent = "auto"
-        if history:
-            followup_intent = await self._classify_followup_intent(original_query, history)
-            if followup_intent != "auto":
-                pipeline_stages.append("followup_intent_classification")
+        # ── Stage 1: Intent Classification (model-driven) ─────────────────
+        pipeline_stages.append("intent_model_classification")
+        followup_intent = await self._classify_followup_intent(original_query, history or [])
 
-        # ── Stage 1: General Query Check ───────────────────────────────────
-        pipeline_stages.append("general_check")
-
-        if self._is_general_query(clean_query):
-            logger.info("General conversational query detected; bypassing KG pipeline")
+        if followup_intent == "general":
+            logger.info("General intent detected by model; using conversational response")
             general_answer = await self._generate_general_answer(clean_query, history=history)
             output = {
                 "final_answer": general_answer,
@@ -238,7 +215,7 @@ class GraphRAGOrchestrator:
                 "graph_paths_used": 0,
                 "confidence_score": None,
             }
-            pipeline_stages.append("general_response")
+            pipeline_stages.append("general_response_model")
             return self._wrap_context(
                 clean_query,
                 {"disease": None, "ingredient": None, "drug": None},
@@ -254,24 +231,7 @@ class GraphRAGOrchestrator:
         disease = entities.get("disease")
         ingredient = entities.get("ingredient")
         drug = entities.get("drug")
-
-        # No biomedical entities -> general response
-        if not disease and not ingredient and not drug:
-            logger.info("No biomedical entities detected; routing to general response")
-            general_answer = await self._generate_general_answer(clean_query, history=history)
-            output = {
-                "final_answer": general_answer,
-                "evidence_strength": "weak",
-                "graph_paths_used": 0,
-                "confidence_score": None,
-            }
-            pipeline_stages.append("general_response_no_entities")
-            return self._wrap_context(
-                clean_query, entities,
-                {"meta": {"kg_applicable": False}},
-                "", general_answer, output, pipeline_stages,
-                kg_applicable=False,
-            )
+        traversal_intent = self._resolve_traversal_intent(followup_intent, entities)
 
         # ── Stage 3 + 4: Rationale Plan & Graph Retrieval (PARALLEL) ─────
         pipeline_stages.append("rationale_plan")
@@ -283,7 +243,11 @@ class GraphRAGOrchestrator:
             return await loop.run_in_executor(
                 None,
                 self._retrieve_graph_by_intent,
-                disease, ingredient, drug,
+                disease,
+                ingredient,
+                drug,
+                traversal_intent,
+                traversal_intent == "cure" or followup_intent == "hadith",
             )
 
         rationale_task = generate_rationale_plan(
@@ -325,55 +289,6 @@ class GraphRAGOrchestrator:
         if subgraph_error and primary_entity_type == "Disease":
             logger.warning("Subgraph error for disease='%s': %s", primary_entity_name, subgraph_error)
 
-        hadith_requested = (
-            self._is_hadith_query(original_query)
-            or self._is_hadith_query(clean_query)
-            or followup_intent == "hadith"
-        )
-        ingredient_requested = (
-            self._is_ingredient_query(original_query)
-            or self._is_ingredient_query(clean_query)
-            or followup_intent == "ingredient"
-        )
-
-        # ── Deterministic hadith shortcut (hadith/reference-focused queries) ─
-        if hadith_requested and disease:
-            hadith_answer = self._build_hadith_answer(reasoning, disease)
-            if hadith_answer:
-                pipeline_stages.append("deterministic_hadith_answer")
-                evidence_strength = self._compute_evidence_strength(reasoning)
-                confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
-                output = {
-                    "final_answer": hadith_answer,
-                    "evidence_strength": evidence_strength,
-                    "graph_paths_used": graph_paths_used,
-                    "confidence_score": confidence_score,
-                }
-                return self._wrap_context(
-                    clean_query, entities, reasoning,
-                    hadith_answer, hadith_answer, output, pipeline_stages,
-                    rationale_plan=rationale_result,
-                )
-
-        # ── Deterministic ingredient shortcut ──────────────────────────────
-        if ingredient_requested and disease and not hadith_requested:
-            direct_answer = self._build_ingredient_answer(reasoning, disease)
-            if direct_answer:
-                pipeline_stages.append("deterministic_ingredient_answer")
-                evidence_strength = self._compute_evidence_strength(reasoning)
-                confidence_score = self._compute_confidence_score(evidence_strength, graph_paths_used)
-                output = {
-                    "final_answer": direct_answer,
-                    "evidence_strength": evidence_strength,
-                    "graph_paths_used": graph_paths_used,
-                    "confidence_score": confidence_score,
-                }
-                return self._wrap_context(
-                    clean_query, entities, reasoning,
-                    direct_answer, direct_answer, output, pipeline_stages,
-                    rationale_plan=rationale_result,
-                )
-
         # ── Stage 8: Causal Reasoner ───────────────────────────────────────
         pipeline_stages.append("causal_reasoner")
         causal_analysis = causal_reasoner.run_causal_analysis(reasoning)
@@ -386,16 +301,25 @@ class GraphRAGOrchestrator:
         )
 
         # ── Stage 10: A0 Generation (structured chain-of-thought) ─────────
+        # Traversal-intent aware subgraph passed to A0/Af
         pipeline_stages.append("a0_generation")
         a0_answer = await self._generate_a0_answer(
             clean_query, reasoning,
             causal_analysis=causal_analysis,
             dosage_validation=dosage_result.to_dict(),
+            followup_intent=followup_intent,
+            traversal_intent=traversal_intent,
         )
 
         # ── Stage 11: Af Validation ───────────────────────────────────────
         pipeline_stages.append("af_validation")
-        af_answer = await self._validate_answer(clean_query, a0_answer, reasoning)
+        af_answer = await self._validate_answer(
+            clean_query,
+            a0_answer,
+            reasoning,
+            followup_intent=followup_intent,
+            traversal_intent=traversal_intent,
+        )
 
         # ── Stage 12: Faith Alignment ──────────────────────────────────────
         pipeline_stages.append("faith_alignment")
@@ -586,6 +510,177 @@ class GraphRAGOrchestrator:
 
     # ── Stage implementations ──────────────────────────────────────────────
 
+    def _schema_has_label(self, label: str) -> bool:
+        labels = self._kg_schema.get("nodeLabels", []) if isinstance(self._kg_schema, dict) else []
+        if not labels:
+            return True
+        return label in labels
+
+    def _schema_has_relationship(self, relationship: str) -> bool:
+        rels = self._kg_schema.get("relationshipTypes", []) if isinstance(self._kg_schema, dict) else []
+        if not rels:
+            return True
+        return relationship in rels
+
+    def _schema_has_edge(self, from_label: str, to_label: str) -> bool:
+        structure = self._kg_schema.get("relationshipStructure", []) if isinstance(self._kg_schema, dict) else []
+        if not structure:
+            return True
+        for edge in structure:
+            if not isinstance(edge, dict):
+                continue
+            from_nodes = edge.get("from") or []
+            to_nodes = edge.get("to") or []
+            if from_label in from_nodes and to_label in to_nodes:
+                return True
+        return False
+
+    def _schema_relationships_between(self, from_label: str, to_label: str) -> set[str]:
+        structure = self._kg_schema.get("relationshipStructure", []) if isinstance(self._kg_schema, dict) else []
+        if not structure:
+            return set()
+        result: set[str] = set()
+        for edge in structure:
+            if not isinstance(edge, dict):
+                continue
+            rel = edge.get("relationship")
+            from_nodes = edge.get("from") or []
+            to_nodes = edge.get("to") or []
+            if (
+                isinstance(rel, str)
+                and rel.strip()
+                and from_label in from_nodes
+                and to_label in to_nodes
+                and self._schema_has_relationship(rel)
+            ):
+                result.add(rel.strip())
+        return result
+
+    @staticmethod
+    def _collect_node_ids(payload: Any) -> set[str]:
+        ids: set[str] = set()
+        if isinstance(payload, dict):
+            node_id = payload.get("id")
+            if isinstance(node_id, str) and node_id.strip():
+                ids.add(node_id.strip())
+            return ids
+        if isinstance(payload, list):
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                node_id = item.get("id")
+                if isinstance(node_id, str) and node_id.strip():
+                    ids.add(node_id.strip())
+        return ids
+
+    def _resolve_traversal_intent(self, followup_intent: str, entities: dict[str, Any]) -> str:
+        label = (followup_intent or "").strip().lower()
+        drug_entity = entities.get("drug") if isinstance(entities, dict) else None
+
+        if label in {"cure", "hadith", "ingredient"}:
+            return "cure"
+        if label in {"reasoning", "technical"}:
+            return "reasoning"
+        if label == "drug" or (isinstance(drug_entity, str) and drug_entity.strip()):
+            return "drug"
+        if label in {"full", "auto", ""}:
+            return "full"
+        return "full"
+
+    def _prune_subgraph_by_traversal_intent(
+        self,
+        subgraph: dict[str, Any],
+        traversal_intent: str,
+        include_hadith: bool,
+    ) -> dict[str, Any]:
+        # Intent-driven traversal depth control enabled.
+        if not isinstance(subgraph, dict):
+            return {"error": "Invalid subgraph payload", "Relations": [], "HadithReferences": []}
+
+        pruned = dict(subgraph)
+        relations = pruned.get("Relations")
+        relation_rows = relations if isinstance(relations, list) else []
+
+        disease_ids = self._collect_node_ids(pruned.get("Disease")) | self._collect_node_ids(pruned.get("Diseases"))
+        ingredient_ids = self._collect_node_ids(pruned.get("Ingredient")) | self._collect_node_ids(pruned.get("Ingredients"))
+        compound_ids = self._collect_node_ids(pruned.get("ChemicalCompounds"))
+        drug_compound_ids = self._collect_node_ids(pruned.get("DrugChemicalCompounds"))
+        drug_ids = self._collect_node_ids(pruned.get("Drug")) | self._collect_node_ids(pruned.get("Drugs"))
+        book_ids = self._collect_node_ids(pruned.get("Book")) | self._collect_node_ids(pruned.get("Books"))
+
+        ingredient_disease_rels = self._schema_relationships_between("Ingredient", "Disease") | self._schema_relationships_between("Disease", "Ingredient")
+        ingredient_compound_rels = self._schema_relationships_between("Ingredient", "ChemicalCompound") | self._schema_relationships_between("ChemicalCompound", "Ingredient")
+        compound_dcc_rels = self._schema_relationships_between("ChemicalCompound", "DrugChemicalCompound") | self._schema_relationships_between("DrugChemicalCompound", "ChemicalCompound")
+        drug_dcc_rels = self._schema_relationships_between("Drug", "DrugChemicalCompound") | self._schema_relationships_between("DrugChemicalCompound", "Drug")
+        disease_hadith_rels = self._schema_relationships_between("Disease", "Hadith") | self._schema_relationships_between("Hadith", "Disease")
+        hadith_reference_rels = self._schema_relationships_between("Reference", "Hadith") | self._schema_relationships_between("Hadith", "Reference")
+        drug_book_rels = self._schema_relationships_between("Drug", "Book") | self._schema_relationships_between("Book", "Drug")
+
+        allowed_rel_types: set[str] = set()
+        allowed_endpoints: set[str] = set()
+
+        if traversal_intent == "cure":
+            allowed_rel_types |= ingredient_disease_rels
+            allowed_rel_types |= disease_hadith_rels
+            allowed_rel_types |= hadith_reference_rels
+            allowed_endpoints |= disease_ids | ingredient_ids
+
+            pruned["ChemicalCompounds"] = []
+            pruned["DrugChemicalCompounds"] = []
+            pruned["Drugs"] = []
+            pruned.setdefault("Books", [])
+            if not include_hadith:
+                pruned["HadithReferences"] = []
+
+        elif traversal_intent == "reasoning":
+            allowed_rel_types |= ingredient_compound_rels
+            allowed_endpoints |= ingredient_ids | compound_ids
+
+            pruned["DrugChemicalCompounds"] = []
+            pruned["Drugs"] = []
+            pruned.setdefault("Books", [])
+            pruned["HadithReferences"] = []
+
+        elif traversal_intent == "drug":
+            allowed_rel_types |= ingredient_compound_rels
+            allowed_rel_types |= compound_dcc_rels
+            allowed_rel_types |= drug_dcc_rels
+            allowed_rel_types |= drug_book_rels
+            allowed_endpoints |= ingredient_ids | compound_ids | drug_compound_ids | drug_ids | book_ids
+
+            pruned.setdefault("Books", pruned.get("Book") if isinstance(pruned.get("Book"), list) else [])
+            if not include_hadith:
+                pruned["HadithReferences"] = []
+
+        else:
+            return pruned
+
+        if not allowed_rel_types:
+            logger.warning("Traversal intent '%s' has no schema-valid relationships; applying defensive empty relations", traversal_intent)
+            pruned["Relations"] = []
+            return pruned
+
+        filtered_relations: list[dict[str, Any]] = []
+        for relation in relation_rows:
+            if not isinstance(relation, dict):
+                continue
+            rel_type = relation.get("type")
+            source = relation.get("from")
+            target = relation.get("to")
+            if not isinstance(rel_type, str) or not rel_type.strip():
+                continue
+            if rel_type not in allowed_rel_types:
+                continue
+            if allowed_endpoints:
+                if not isinstance(source, str) or not isinstance(target, str):
+                    continue
+                if source not in allowed_endpoints or target not in allowed_endpoints:
+                    continue
+            filtered_relations.append(dict(relation))
+
+        pruned["Relations"] = filtered_relations
+        return pruned
+
     def _extract_entities(self, query: str) -> dict:
         """Stage 2: Hybrid LLM + fuzzy entity extraction."""
         try:
@@ -609,14 +704,31 @@ class GraphRAGOrchestrator:
         disease: str | None,
         ingredient: str | None,
         drug: str | None,
+        traversal_intent: str = "full",
+        include_hadith: bool = False,
     ) -> tuple[dict, str, str]:
         """Stage 4+5: Intent-based routing + KG retrieval."""
         try:
+            # Schema-driven KG retrieval enforced.
             if disease:
+                if not self._schema_has_label("Disease"):
+                    return (
+                        {"error": "Disease label not available in schema", "Relations": [], "HadithReferences": []},
+                        "Disease",
+                        disease,
+                    )
                 logger.info("Intent routing: DISEASE query for '%s'", disease)
                 subgraph = self._disease_subgraph_fetcher(disease) or {}
-                hadith_refs = self._hadith_fetcher(disease) or []
+                should_fetch_hadith = (
+                    include_hadith
+                    and traversal_intent in {"cure", "full"}
+                    and self._schema_has_label("Reference")
+                    and self._schema_has_label("Hadith")
+                    and self._schema_has_edge("Disease", "Hadith")
+                )
+                hadith_refs = self._hadith_fetcher(disease) if should_fetch_hadith else []
                 subgraph["HadithReferences"] = hadith_refs
+                subgraph = self._prune_subgraph_by_traversal_intent(subgraph, traversal_intent, include_hadith)
                 logger.info(
                     "Disease subgraph: ingredients=%d compounds=%d drugs=%d hadith=%d",
                     len(subgraph.get("Ingredients", []) or []),
@@ -627,15 +739,29 @@ class GraphRAGOrchestrator:
                 return subgraph, "Disease", disease
 
             if ingredient:
+                if not self._schema_has_label("Ingredient"):
+                    return (
+                        {"error": "Ingredient label not available in schema", "Relations": [], "HadithReferences": []},
+                        "Ingredient",
+                        ingredient,
+                    )
                 logger.info("Intent routing: INGREDIENT query for '%s'", ingredient)
                 subgraph = self._ingredient_subgraph_fetcher(ingredient) or {}
                 subgraph.setdefault("HadithReferences", [])
+                subgraph = self._prune_subgraph_by_traversal_intent(subgraph, traversal_intent, include_hadith)
                 return subgraph, "Ingredient", ingredient
 
             if drug:
+                if not self._schema_has_label("Drug"):
+                    return (
+                        {"error": "Drug label not available in schema", "Relations": [], "HadithReferences": []},
+                        "Drug",
+                        drug,
+                    )
                 logger.info("Intent routing: DRUG query for '%s'", drug)
                 subgraph = self._drug_subgraph_fetcher(drug) or {}
                 subgraph.setdefault("HadithReferences", [])
+                subgraph = self._prune_subgraph_by_traversal_intent(subgraph, traversal_intent, include_hadith)
                 return subgraph, "Drug", drug
 
             return {"error": "No entity", "Relations": [], "HadithReferences": []}, "Unknown", "N/A"
@@ -649,15 +775,16 @@ class GraphRAGOrchestrator:
     def _build_reasoning(self, subgraph: dict, primary_entity_type: str, primary_entity_name: str) -> dict:
         """Stage 7: Convert subgraph to structured reasoning."""
         try:
+            # Schema-driven KG retrieval enforced.
             reasoning = self._reasoning_formatter(subgraph) or {}
 
-            if primary_entity_type == "Disease":
+            if primary_entity_type == "Disease" and self._schema_has_label("Disease"):
                 reasoning.setdefault("Disease", {"id": None, "name": primary_entity_name, "category": None})
                 reasoning.setdefault("Ingredients", [])
-            elif primary_entity_type == "Ingredient":
+            elif primary_entity_type == "Ingredient" and self._schema_has_label("Ingredient"):
                 reasoning.setdefault("Ingredient", {"id": None, "name": primary_entity_name})
                 reasoning.setdefault("Diseases", [])
-            elif primary_entity_type == "Drug":
+            elif primary_entity_type == "Drug" and self._schema_has_label("Drug"):
                 reasoning.setdefault("Drug", {"id": None, "name": primary_entity_name})
                 reasoning.setdefault("Ingredients", [])
                 reasoning.setdefault("Diseases", [])
@@ -691,6 +818,8 @@ class GraphRAGOrchestrator:
         reasoning: dict,
         causal_analysis: dict | None = None,
         dosage_validation: dict | None = None,
+        followup_intent: str = "auto",
+        traversal_intent: str = "full",
     ) -> str:
         """
         Stage 10: A0 generation with structured chain-of-thought prompting.
@@ -707,8 +836,10 @@ class GraphRAGOrchestrator:
         meta = reasoning.get("meta", {}) if isinstance(reasoning, dict) else {}
         primary_entity_type = meta.get("primary_entity_type", "Disease")
 
+        traversal_instruction = self._get_traversal_intent_prompt_instruction(traversal_intent)
+
         if primary_entity_type == "Disease":
-            include_technical_details = self._is_technical_detail_query(query)
+            include_technical_details = followup_intent == "technical"
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
@@ -731,7 +862,8 @@ class GraphRAGOrchestrator:
                 f"Technical detail mode: {'ON' if include_technical_details else 'OFF'}.\n"
                 "When technical detail mode is OFF, do NOT include chemical compounds, biochemical mappings, "
                 "or drug-equivalent names. Keep it practical and user-friendly.\n"
-                "Write as a helpful, friendly answer tailored to the user's wording."
+                "Write as a helpful, friendly answer tailored to the user's wording.\n\n"
+                f"Traversal-intent constraints:\n{traversal_instruction}"
             )
         elif primary_entity_type == "Ingredient":
             system_prompt = (
@@ -742,7 +874,8 @@ class GraphRAGOrchestrator:
                 "drug equivalents with mapping strength → Hadith references.\n\n"
                 "OUTPUT a clean, natural-language answer (no step numbers, no headings).\n"
                 "Include mapping strengths (IDENTICAL/LIKELY/WEAK) and uncertainty.\n"
-                "End with a brief safety disclaimer recommending a healthcare professional."
+                "End with a brief safety disclaimer recommending a healthcare professional.\n\n"
+                f"Traversal-intent constraints:\n{traversal_instruction}"
             )
         elif primary_entity_type == "Drug":
             system_prompt = (
@@ -753,14 +886,16 @@ class GraphRAGOrchestrator:
                 "with mapping strength → diseases those ingredients treat → Hadith if present.\n\n"
                 "OUTPUT a clean, natural-language answer (no step numbers, no headings).\n"
                 "Include mapping strengths (IDENTICAL/LIKELY/WEAK) and uncertainty.\n"
-                "End with a brief safety disclaimer recommending a healthcare professional."
+                "End with a brief safety disclaimer recommending a healthcare professional.\n\n"
+                f"Traversal-intent constraints:\n{traversal_instruction}"
             )
         else:
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
                 "Use ONLY the provided structured graph reasoning evidence.\n"
                 "Do NOT hallucinate. State uncertainty when evidence is weak.\n"
-                "Always recommend consulting a healthcare professional."
+                "Always recommend consulting a healthcare professional.\n\n"
+                f"Traversal-intent constraints:\n{traversal_instruction}"
             )
 
         # Build enriched user prompt with causal + dosage context
@@ -768,6 +903,9 @@ class GraphRAGOrchestrator:
         trimmed_reasoning = self._trim_reasoning_for_llm(reasoning)
         context_parts = [
             f"User Query:\n{query}\n",
+            f"Traversal Intent:\n{traversal_intent}\n",
+            "The structured reasoning JSON below is already pruned for traversal intent. "
+            "Use only the nodes/edges present there and do not infer omitted graph layers.\n",
             f"Structured Graph Reasoning (JSON):\n{json.dumps(trimmed_reasoning, ensure_ascii=False)}",
         ]
 
@@ -806,8 +944,16 @@ class GraphRAGOrchestrator:
                 "Available evidence appears limited, so please refine the query."
             )
 
-    async def _validate_answer(self, query: str, a0_answer: str, reasoning: dict) -> str:
+    async def _validate_answer(
+        self,
+        query: str,
+        a0_answer: str,
+        reasoning: dict,
+        followup_intent: str = "auto",
+        traversal_intent: str = "full",
+    ) -> str:
         """Stage 11: Af validation with safety and uncertainty controls."""
+        traversal_instruction = self._get_traversal_intent_prompt_instruction(traversal_intent)
         system_prompt = (
             "You are PRO-MedGraph Validator (Af).\n"
             "Your ONLY job is to produce a polished, user-facing answer.\n\n"
@@ -825,11 +971,16 @@ class GraphRAGOrchestrator:
             "unless the user explicitly asks for method/source details.\n"
             "- Unless the user explicitly asks for technical details, remove chemical compounds, mapping labels, "
             "and drug-equivalent lists from the final answer.\n"
+            "- Respect traversal-intent boundaries strictly; do not add entities/edges outside allowed path scope.\n"
+            f"- Traversal-intent constraints: {traversal_instruction}\n"
             "- Return ONLY the final answer text — no meta-commentary."
         )
 
         user_prompt = (
             f"User Query:\n{query}\n\n"
+            f"Detected Intent Label:\n{followup_intent}\n\n"
+            f"Traversal Intent:\n{traversal_intent}\n\n"
+            "The structured reasoning JSON below is already pruned for traversal intent.\n"
             f"Draft Answer (A0):\n{a0_answer}\n\n"
             f"Structured Graph Reasoning (JSON):\n"
             f"{json.dumps(self._trim_reasoning_for_llm(reasoning), ensure_ascii=False)}"
@@ -933,14 +1084,13 @@ class GraphRAGOrchestrator:
 
         Returns one of: hadith | ingredient | technical | general | auto
         """
-        if not history:
-            return "auto"
-
         recent = history[-6:]
         convo_lines = "\n".join(
             f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:240]}"
             for m in recent
         )
+        if not convo_lines:
+            convo_lines = "(none)"
 
         system_prompt = (
             "You are an intent classifier for follow-up chat messages.\n"
@@ -977,102 +1127,28 @@ class GraphRAGOrchestrator:
     # ── Utility methods ────────────────────────────────────────────────────
 
     @staticmethod
-    def _is_general_query(query: str) -> bool:
-        normalized = query.strip().lower()
-        if not normalized:
-            return True
-        tokens = normalized.split()
-        if len(tokens) == 1 and len(tokens[0]) <= 8:
-            if _GENERAL_QUERY_PATTERN.match(normalized):
-                return True
-        return bool(_GENERAL_QUERY_PATTERN.match(normalized))
-
-    @staticmethod
-    def _is_ingredient_query(query: str) -> bool:
-        return bool(_INGREDIENT_QUERY_PATTERN.search(query or ""))
-
-    @staticmethod
-    def _is_hadith_query(query: str) -> bool:
-        return bool(_HADITH_QUERY_PATTERN.search(query or ""))
-
-    @staticmethod
-    def _is_drug_query(query: str) -> bool:
-        return bool(_DRUG_QUERY_PATTERN.search(query or ""))
-
-    @staticmethod
-    def _is_technical_detail_query(query: str) -> bool:
-        return bool(_TECHNICAL_DETAIL_QUERY_PATTERN.search(query or ""))
-
-    def _build_ingredient_answer(self, reasoning: dict, disease_name: str) -> str | None:
-        """Build direct ingredient list from KG data."""
-        if not isinstance(reasoning, dict):
-            return None
-
-        ingredients = reasoning.get("Ingredients", [])
-        if not isinstance(ingredients, list):
-            ingredients = []
-
-        try:
-            direct_rows = self._ingredient_fetcher(disease_name)
-        except Exception:
-            direct_rows = []
-
-        direct_names = [
-            item.get("name").strip()
-            for item in direct_rows
-            if isinstance(item, dict) and isinstance(item.get("name"), str) and item.get("name").strip()
-        ]
-        reasoning_names = [
-            item.get("name").strip()
-            for item in ingredients
-            if isinstance(item, dict) and isinstance(item.get("name"), str) and item.get("name").strip()
-        ]
-
-        deduped = list(dict.fromkeys([*direct_names, *reasoning_names]))
-        if not deduped:
-            return None
-
-        bullet_lines = "\n".join(f"{i + 1}. {name}" for i, name in enumerate(deduped[:25]))
-        suffix = "" if len(deduped) <= 25 else f"\n\n(Showing top 25 of {len(deduped)} ingredients)"
-        return (
-            f"If you’re experiencing {disease_name}, one traditional option you can consider is:\n\n"
-            f"{bullet_lines}{suffix}\n\n"
-            "If you want, I can also share hadith support or a deeper medical reasoning view."
-        )
-
-    def _build_hadith_answer(self, reasoning: dict, disease_name: str) -> str | None:
-        """Build hadith-only response for hadith/reference-focused follow-up queries."""
-        if not isinstance(reasoning, dict):
-            return None
-
-        hadith_refs = reasoning.get("HadithReferences", [])
-        if not isinstance(hadith_refs, list):
-            hadith_refs = []
-
-        cleaned: list[tuple[str, str]] = []
-        for item in hadith_refs:
-            if not isinstance(item, dict):
-                continue
-            text = item.get("name")
-            ref = item.get("reference")
-            if isinstance(text, str) and text.strip():
-                cleaned.append((text.strip(), ref.strip() if isinstance(ref, str) and ref.strip() else "Unknown"))
-
-        if not cleaned:
+    def _get_traversal_intent_prompt_instruction(traversal_intent: str) -> str:
+        intent = (traversal_intent or "full").strip().lower()
+        if intent == "cure":
             return (
-                f"I could not find a hadith reference for {disease_name} in the available data. "
-                "If you want, I can still share practical non-hadith guidance."
+                "Allowed scope only: Disease → Ingredient → Hadith → Reference. "
+                "Do not use or infer ChemicalCompound, DrugChemicalCompound, or Drug layers. "
+                "Emphasize prophetic remedies and hadith-grounded guidance respectfully."
             )
-
-        lines = []
-        for index, (text, reference) in enumerate(cleaned[:3], start=1):
-            lines.append(f"{index}. {text}\n   Reference: {reference}")
-        joined_lines = "\n".join(lines)
-
+        if intent == "reasoning":
+            return (
+                "Allowed scope only: Ingredient → ChemicalCompound. "
+                "Use CONTAINS relationship properties (source, quantity) when present in evidence. "
+                "Emphasize chemical reasoning; do not use Drug nodes."
+            )
+        if intent == "drug":
+            return (
+                "Allowed scope only: Ingredient → ChemicalCompound → DrugChemicalCompound → Drug (+Book if present). "
+                "Emphasize modern drug references and book context when available. "
+                "Do not prioritize Hadith unless explicitly requested by user intent."
+            )
         return (
-            f"Yes — here is hadith support related to {disease_name}:\n\n"
-            f"{joined_lines}\n\n"
-            "If you want, I can also provide a simple non-technical treatment summary."
+            "Full traversal scope is allowed. Use only provided evidence and do not hallucinate missing graph edges."
         )
 
     @staticmethod

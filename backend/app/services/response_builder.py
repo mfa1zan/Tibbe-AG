@@ -77,11 +77,29 @@ You will receive:
 Rewrite A_validated into a polished, user-friendly answer AND produce a \
 structured JSON object in a SINGLE response.
 
+═══ INTENT-AWARE BEHAVIOR ═══
+Determine intent from the provided USER QUERY (and A_validated context).
+
+If intent == "cure":
+- DO NOT include a "Mechanistic Explanation" section.
+- DO NOT include chemical compounds.
+- DO NOT include modern drug equivalents.
+- DO NOT include ingredient → compound → drug chains.
+- Focus only on:
+    - Prophetic remedy guidance
+    - Practical usage guidance
+    - Hadith references (if present)
+    - Safety/disclaimer language
+
+If intent != "cure":
+- You may include mechanistic and mapping details when supported by evidence.
+
 ═══ STRICT RULES ═══
 1. Use ONLY information present in A_validated and the evidence blocks.
 2. Do NOT hallucinate, invent, or cite external studies / URLs / data.
-3. If evidence is absent for a section, write "Information not available \
-   in the current knowledge graph."
+3. Do NOT create empty sections. Render a section only when it has meaningful data.
+4. For sections intentionally skipped by intent rules, do NOT write placeholder text such as
+    "Information not available in the current knowledge graph."
 4. ALWAYS include a medical disclaimer at the end.
 
 ═══ REQUIRED JSON OUTPUT ═══
@@ -109,6 +127,11 @@ JSON) with these keys:
     }
 }
 
+JSON CONDITION:
+- If intent == "cure", you MUST set:
+    - "modern_drug_equivalent": null
+    - "mechanism": null
+
 ═══ FORMATTING GUIDELINES FOR final_answer_text ═══
 Use this markdown template (skip any section that has no data):
 
@@ -119,9 +142,26 @@ Use this markdown template (skip any section that has no data):
 <ingredient → compound → mechanism → modern drug equivalent>
 <mapping confidence: high / moderate / low>
 
+Conditional formatting rule:
+- If intent == "cure", SKIP the "## 🔬 Mechanistic Explanation" section entirely.
+
+Cure-mode section policy:
+- If intent == "cure", ONLY these sections are allowed:
+    - ## 🌿 Prophetic Remedy
+    - ## 💊 Dosage & Preparation (traditional only)
+    - ## ⚠️ Safety & Contraindications
+    - ## 📖 References
+    - ## ❗ Disclaimer
+- In cure mode, do NOT mention modern drugs anywhere.
+- In cure mode, do NOT mention chemical compounds anywhere.
+- In cure mode, do NOT include ingredient → compound → drug chains.
+
 ## 💊 Dosage & Preparation
 **Traditional:** <traditional dosage>
 **Modern equivalent:** <drug + standard dosage>
+
+Conditional formatting rule:
+- If intent == "cure", remove the "**Modern equivalent:**" line entirely.
 
 ## ⚠️ Safety & Contraindications
 <warnings, drug interactions, side effects>
