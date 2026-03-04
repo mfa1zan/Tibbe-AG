@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import './ChatHistory.css';
 
@@ -62,4 +62,4 @@ function ChatHistory({ messages, isTyping }) {
   );
 }
 
-export default ChatHistory;
+export default memo(ChatHistory);

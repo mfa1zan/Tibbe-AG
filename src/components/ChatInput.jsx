@@ -4,12 +4,12 @@ import './ChatInput.css';
 function ChatInput({ value, onChange, onSend, onCancel, disabled, isGenerating, error }) {
   const inputRef = useRef(null);
 
-  // Auto-focus the input field whenever it becomes enabled or value is cleared
+  // Auto-focus when the form becomes interactive again.
   useEffect(() => {
-    if (inputRef.current) {
+    if (!disabled && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [disabled, value]);
+  }, [disabled]);
 
   const handleSubmit = (event) => {
     event.preventDefault();

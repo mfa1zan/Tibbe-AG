@@ -26,28 +26,77 @@
   white-space: pre-line;
 }
 
+.chat-markdown-body {
+  @apply text-sm leading-relaxed;
+}
+
+.chat-markdown-body p {
+  @apply m-0;
+}
+
+.chat-markdown-body p + p {
+  @apply mt-2;
+}
+
+.chat-markdown-body ul,
+.chat-markdown-body ol {
+  @apply my-2 ml-5;
+}
+
+.chat-markdown-body li + li {
+  @apply mt-1;
+}
+
+.chat-markdown-body a {
+  color: var(--primary-color);
+  @apply underline;
+}
+
+.chat-markdown-body code {
+  @apply rounded bg-slate-300/70 px-1 py-0.5 text-xs dark:bg-slate-700/80;
+}
+
+.chat-markdown-body pre {
+  @apply mt-2 overflow-x-auto rounded-lg bg-slate-900 p-2 text-slate-100;
+}
+
+.chat-markdown-body pre code {
+  @apply bg-transparent p-0 text-xs text-inherit;
+}
+
+.chat-markdown-body table {
+  @apply mt-2 w-full border-collapse text-xs;
+}
+
+.chat-markdown-body th,
+.chat-markdown-body td {
+  @apply border border-slate-300 px-2 py-1 dark:border-slate-600;
+}
+
+.structured-fields-card {
+  @apply mt-2 rounded-xl border border-slate-300/70 bg-slate-100/70 p-3 dark:border-slate-600/70 dark:bg-slate-900/45;
+}
+
+.structured-fields-title {
+  @apply mb-2 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200;
+}
+
+.structured-fields-grid {
+  @apply grid gap-2 sm:grid-cols-2;
+}
+
+.structured-field-item {
+  @apply min-w-0;
+}
+
+.structured-field-key {
+  @apply text-[11px] font-medium text-slate-600 dark:text-slate-300;
+}
+
+.structured-field-value {
+  @apply mt-0.5 whitespace-pre-wrap break-words text-xs text-slate-800 dark:text-slate-100;
+}
+
 .chat-provenance {
   @apply mt-2 border-t border-slate-300/60 pt-2 text-xs text-slate-700 dark:border-slate-600/70 dark:text-slate-300;
-}
-
-.kg-token-wrap {
-  @apply relative inline-block cursor-help font-medium;
-}
-
-.kg-token-text {
-  @apply rounded px-0.5 underline decoration-dotted;
-  color: var(--primary-color);
-}
-
-.kg-token-popup {
-  @apply pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-56 rounded-lg border border-slate-300 bg-white p-2 text-xs text-slate-800 shadow-lg group-hover:block dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
-}
-
-.kg-token-popup-title {
-  @apply block;
-  color: var(--primary-color);
-}
-
-.kg-token-popup-content {
-  @apply mt-1 block;
 }

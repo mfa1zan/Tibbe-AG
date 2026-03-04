@@ -11,6 +11,9 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 - FastAPI backend endpoint: `POST /api/chat`
 - Frontend API adapter with runtime response validation and normalized error categories
 - ESLint setup for React + Hooks code-quality enforcement
+- Markdown rendering (sanitized) for assistant responses
+- Structured evidence field cards rendered in chat bubbles
+- Local message persistence for chat session recovery
 - Query preprocessing (normalization + synonym expansion)
 - Neo4j KG retrieval with TTL caching
 - Async LLM reasoning via Groq-compatible API
@@ -181,7 +184,7 @@ Response:
 Notes:
 
 - Frontend maps API fields to UI message fields (`reply`, `confidenceScore`, etc.) in `src/api.js`.
-- `structured_fields` may be emitted by backend pipelines but are not yet rendered in the frontend UI.
+- `structured_fields` from backend payloads are rendered as structured evidence cards in assistant messages.
 
 ## Code Quality
 
@@ -212,13 +215,15 @@ Implemented baseline:
 - Project-wide ESLint command + configuration
 - Streaming-capable frontend rendering (incremental assistant output playback)
 - User-controlled stop/cancel generation action in chat input
+- Structured fields rendering in chat bubbles
+- Sanitized markdown rendering for assistant answers
+- Chat message persistence in local storage with restore on refresh
 
 Planned next modernization steps:
 
-- Persistent message/session storage
-- Structured field rendering in chat bubbles
-- Markdown rendering with sanitization
 - Mobile input layout improvements and long-history performance optimization
+- List virtualization for very long conversations
+- Route-based app shell and settings/history pages
 
 ## Build
 

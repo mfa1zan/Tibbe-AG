@@ -13,6 +13,44 @@ const createMessage = (role, content, metadata = {}) => ({
   ...metadata
 });
 
+const CHAT_STORAGE_KEY = 'kg-chat-messages-v1';
+
+const INITIAL_GREETING = createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?');
+
+function sanitizeStoredMessages(rawValue) {
+  if (!Array.isArray(rawValue)) return null;
+
+  const sanitized = rawValue
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      id: typeof entry.id === 'string' && entry.id ? entry.id : crypto.randomUUID(),
+      role: entry.role === 'user' ? 'user' : 'bot',
+      content: typeof entry.content === 'string' ? entry.content : '',
+      confidenceScore: typeof entry.confidenceScore === 'number' ? entry.confidenceScore : null,
+      evidenceStrength: typeof entry.evidenceStrength === 'string' ? entry.evidenceStrength : undefined,
+      graphPathsUsed: Number.isFinite(entry.graphPathsUsed) ? entry.graphPathsUsed : undefined,
+      reasoningTrace:
+        entry.reasoningTrace && typeof entry.reasoningTrace === 'object' ? entry.reasoningTrace : null,
+      safety: entry.safety && typeof entry.safety === 'object' ? entry.safety : null,
+      structuredFields:
+        entry.structuredFields && typeof entry.structuredFields === 'object' ? entry.structuredFields : null
+    }))
+    .filter((entry) => entry.content.trim().length > 0);
+
+  return sanitized.length > 0 ? sanitized : null;
+}
+
+function loadInitialMessages() {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return [INITIAL_GREETING];
+    const parsed = JSON.parse(raw);
+    return sanitizeStoredMessages(parsed) ?? [INITIAL_GREETING];
+  } catch {
+    return [INITIAL_GREETING];
+  }
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -22,9 +60,7 @@ function App() {
 }
 
 function AppShell() {
-  const [messages, setMessages] = useState([
-    createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?')
-  ]);
+  const [messages, setMessages] = useState(loadInitialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStreamedToken, setHasStreamedToken] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +70,15 @@ function AppShell() {
 
   useEffect(() => {
     messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      const persistableMessages = messages.filter((message) => !message.isStreaming);
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(persistableMessages));
+    } catch (storageError) {
+      void storageError;
+    }
   }, [messages]);
 
   useEffect(() => () => requestAbortRef.current?.abort(), []);
@@ -72,7 +117,15 @@ function AppShell() {
           .slice(-10)
           .map((m) => ({ role: m.role === 'bot' ? 'bot' : 'user', content: m.content }));
 
-        const { reply, evidenceStrength, graphPathsUsed, confidenceScore, safety, reasoningTrace } =
+        const {
+          reply,
+          evidenceStrength,
+          graphPathsUsed,
+          confidenceScore,
+          safety,
+          reasoningTrace,
+          structuredFields
+        } =
           await streamMessageToChatApi(messageText, {
             usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true',
             history: historyForApi,
@@ -103,7 +156,8 @@ function AppShell() {
                   graphPathsUsed,
                   confidenceScore,
                   safety,
-                  reasoningTrace
+                  reasoningTrace,
+                  structuredFields
                 }
               : item
           )
