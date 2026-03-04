@@ -14,6 +14,8 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 - Markdown rendering (sanitized) for assistant responses
 - Structured evidence field cards rendered in chat bubbles
 - Local message persistence for chat session recovery
+- Route-based app shell (`/chat`, `/history`, `/settings`)
+- Virtualized chat history rendering for better long-conversation performance
 - Query preprocessing (normalization + synonym expansion)
 - Neo4j KG retrieval with TTL caching
 - Async LLM reasoning via Groq-compatible API
@@ -22,6 +24,7 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 ## Tech Stack
 
 - Frontend: React 18, Vite, TailwindCSS
+- Frontend routing/UI performance: React Router, React Virtuoso
 - Frontend quality: ESLint 9 (flat config), React Hooks lint rules
 - Backend: FastAPI, Neo4j Python Driver, HTTPX
 - LLM: Groq Chat Completions API (Llama models)
@@ -221,9 +224,8 @@ Implemented baseline:
 
 Planned next modernization steps:
 
-- Mobile input layout improvements and long-history performance optimization
-- List virtualization for very long conversations
-- Route-based app shell and settings/history pages
+- Mobile input layout improvements and responsive spacing refinements
+- End-to-end tests for chat, settings, and history routes
 
 ## Build
 

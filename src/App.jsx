@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import ChatHistory from './components/ChatHistory';
 import ChatInput from './components/ChatInput';
 import ThemeToggle from './components/ThemeToggle';
@@ -85,6 +86,20 @@ function AppShell() {
 
   const handleCancelGeneration = useCallback(() => {
     requestAbortRef.current?.abort();
+  }, []);
+
+  const handleClearConversation = useCallback(() => {
+    requestAbortRef.current?.abort();
+    setMessages([INITIAL_GREETING]);
+    setIsLoading(false);
+    setHasStreamedToken(false);
+    setError('');
+
+    try {
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+    } catch (storageError) {
+      void storageError;
+    }
   }, []);
 
   const handleSendMessage = useCallback(
@@ -191,23 +206,131 @@ function AppShell() {
         <header className="app-header">
           <div className="app-header-row">
             <h1 className="app-title">PRO-MedGraph</h1>
-            <ThemeToggle />
+            <nav className="app-nav" aria-label="Primary">
+              <NavLink
+                to="/chat"
+                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+              >
+                Chat
+              </NavLink>
+              <NavLink
+                to="/history"
+                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+              >
+                History
+              </NavLink>
+              <NavLink
+                to="/settings"
+                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+              >
+                Settings
+              </NavLink>
+            </nav>
           </div>
         </header>
 
-        <ChatHistory messages={messages} isTyping={isLoading && !hasStreamedToken} />
-
-        <ChatInput
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={handleSendMessage}
-          onCancel={handleCancelGeneration}
-          disabled={isLoading}
-          isGenerating={isLoading}
-          error={error}
-        />
+        <Routes>
+          <Route
+            path="/"
+            element={<Navigate to="/chat" replace />}
+          />
+          <Route
+            path="/chat"
+            element={
+              <ChatPage
+                messages={messages}
+                isLoading={isLoading}
+                hasStreamedToken={hasStreamedToken}
+                inputValue={inputValue}
+                error={error}
+                onInputChange={setInputValue}
+                onSendMessage={handleSendMessage}
+                onCancelGeneration={handleCancelGeneration}
+              />
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <HistoryPage
+                messages={messages}
+                onClearConversation={handleClearConversation}
+              />
+            }
+          />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Routes>
       </section>
     </main>
+  );
+}
+
+function ChatPage({
+  messages,
+  isLoading,
+  hasStreamedToken,
+  inputValue,
+  error,
+  onInputChange,
+  onSendMessage,
+  onCancelGeneration
+}) {
+  return (
+    <>
+      <ChatHistory messages={messages} isTyping={isLoading && !hasStreamedToken} />
+
+      <ChatInput
+        value={inputValue}
+        onChange={onInputChange}
+        onSend={onSendMessage}
+        onCancel={onCancelGeneration}
+        disabled={isLoading}
+        isGenerating={isLoading}
+        error={error}
+      />
+    </>
+  );
+}
+
+function HistoryPage({ messages, onClearConversation }) {
+  const persistedMessages = useMemo(
+    () => messages.filter((message) => !message.isStreaming && message.role === 'user').slice().reverse(),
+    [messages]
+  );
+
+  return (
+    <section className="app-route-panel">
+      <div className="app-route-header">
+        <h2 className="app-route-title">Conversation History</h2>
+        <button type="button" className="app-clear-button" onClick={onClearConversation}>
+          Clear Chat
+        </button>
+      </div>
+      {persistedMessages.length === 0 ? (
+        <p className="app-route-empty">No user messages found yet.</p>
+      ) : (
+        <ul className="app-history-list">
+          {persistedMessages.map((message) => (
+            <li key={message.id} className="app-history-item">
+              {message.content}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function SettingsPage() {
+  return (
+    <section className="app-route-panel">
+      <h2 className="app-route-title">Display Settings</h2>
+      <p className="app-route-helper">
+        Customize theme mode, font family, and primary color for your chat workspace.
+      </p>
+      <ThemeToggle />
+    </section>
   );
 }
 
