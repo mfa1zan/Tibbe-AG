@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
-import ChatHistory from './components/ChatHistory';
-import ChatInput from './components/ChatInput';
-import ThemeToggle from './components/ThemeToggle';
 import { ThemeProvider } from './context/ThemeContext';
 import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi } from './api';
 import './App.css';
+
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 const createMessage = (role, content, metadata = {}) => ({
   id: crypto.randomUUID(),
@@ -229,107 +230,49 @@ function AppShell() {
           </div>
         </header>
 
-        <Routes>
-          <Route
-            path="/"
-            element={<Navigate to="/chat" replace />}
-          />
-          <Route
-            path="/chat"
-            element={
-              <ChatPage
-                messages={messages}
-                isLoading={isLoading}
-                hasStreamedToken={hasStreamedToken}
-                inputValue={inputValue}
-                error={error}
-                onInputChange={setInputValue}
-                onSendMessage={handleSendMessage}
-                onCancelGeneration={handleCancelGeneration}
-              />
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              <HistoryPage
-                messages={messages}
-                onClearConversation={handleClearConversation}
-              />
-            }
-          />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/chat" replace />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route
+              path="/"
+              element={<Navigate to="/chat" replace />}
+            />
+            <Route
+              path="/chat"
+              element={
+                <ChatPage
+                  messages={messages}
+                  isLoading={isLoading}
+                  hasStreamedToken={hasStreamedToken}
+                  inputValue={inputValue}
+                  error={error}
+                  onInputChange={setInputValue}
+                  onSendMessage={handleSendMessage}
+                  onCancelGeneration={handleCancelGeneration}
+                />
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <HistoryPage
+                  messages={messages}
+                  onClearConversation={handleClearConversation}
+                />
+              }
+            />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/chat" replace />} />
+          </Routes>
+        </Suspense>
       </section>
     </main>
   );
 }
 
-function ChatPage({
-  messages,
-  isLoading,
-  hasStreamedToken,
-  inputValue,
-  error,
-  onInputChange,
-  onSendMessage,
-  onCancelGeneration
-}) {
-  return (
-    <>
-      <ChatHistory messages={messages} isTyping={isLoading && !hasStreamedToken} />
-
-      <ChatInput
-        value={inputValue}
-        onChange={onInputChange}
-        onSend={onSendMessage}
-        onCancel={onCancelGeneration}
-        disabled={isLoading}
-        isGenerating={isLoading}
-        error={error}
-      />
-    </>
-  );
-}
-
-function HistoryPage({ messages, onClearConversation }) {
-  const persistedMessages = useMemo(
-    () => messages.filter((message) => !message.isStreaming && message.role === 'user').slice().reverse(),
-    [messages]
-  );
-
+function RouteFallback() {
   return (
     <section className="app-route-panel">
-      <div className="app-route-header">
-        <h2 className="app-route-title">Conversation History</h2>
-        <button type="button" className="app-clear-button" onClick={onClearConversation}>
-          Clear Chat
-        </button>
-      </div>
-      {persistedMessages.length === 0 ? (
-        <p className="app-route-empty">No user messages found yet.</p>
-      ) : (
-        <ul className="app-history-list">
-          {persistedMessages.map((message) => (
-            <li key={message.id} className="app-history-item">
-              {message.content}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function SettingsPage() {
-  return (
-    <section className="app-route-panel">
-      <h2 className="app-route-title">Display Settings</h2>
-      <p className="app-route-helper">
-        Customize theme mode, font family, and primary color for your chat workspace.
-      </p>
-      <ThemeToggle />
+      <p className="app-route-helper">Loading page...</p>
     </section>
   );
 }

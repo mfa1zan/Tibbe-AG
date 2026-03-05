@@ -16,6 +16,7 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 - Local message persistence for chat session recovery
 - Route-based app shell (`/chat`, `/history`, `/settings`)
 - Virtualized chat history rendering for better long-conversation performance
+- Route-level code splitting (lazy-loaded pages) to reduce initial frontend bundle cost
 - Query preprocessing (normalization + synonym expansion)
 - Neo4j KG retrieval with TTL caching
 - Async LLM reasoning via Groq-compatible API
@@ -51,6 +52,7 @@ Tibbe-AG/
 │   ├── api.js
 │   ├── components/
 │   ├── context/ThemeContext.jsx
+│   ├── pages/
 │   └── *.css
 ├── eslint.config.js
 ├── .env
@@ -188,6 +190,7 @@ Notes:
 
 - Frontend maps API fields to UI message fields (`reply`, `confidenceScore`, etc.) in `src/api.js`.
 - `structured_fields` from backend payloads are rendered as structured evidence cards in assistant messages.
+- Frontend optimizations do **not** change the backend contract: request (`query`, `history`) and response (`final_answer`, metadata) remain identical.
 
 ## Code Quality
 
