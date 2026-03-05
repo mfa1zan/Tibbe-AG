@@ -48,6 +48,7 @@ from app.services import (
 )
 from app.services.dosage_validator import validate_dosage
 from app.services.llm_service import LLMService
+from app.services.pipeline_tracer import PipelineTracer, get_tracer, set_tracer, clear_tracer
 from app.services.rationale_planner import generate_rationale_plan, filter_subgraph_by_plan
 
 logger = logging.getLogger(__name__)
@@ -185,29 +186,57 @@ class GraphRAGOrchestrator:
         original_query = clean_query
         pipeline_stages: list[str] = []
 
+        # ── Initialize Pipeline Tracer ─────────────────────────────────────
+        tracer = PipelineTracer()
+        set_tracer(tracer)
+        tracer.set_user_input(clean_query)
+        logger.info("\n" + "=" * 80)
+        logger.info("PIPELINE START — user_query='%s'", clean_query)
+        logger.info("=" * 80)
+
+        try:
+            return await self._run_pipeline(
+                clean_query, original_query, history, pipeline_stages, tracer,
+            )
+        finally:
+            clear_tracer()
+
+    async def _run_pipeline(
+        self,
+        clean_query: str,
+        original_query: str,
+        history: list[dict] | None,
+        pipeline_stages: list[str],
+        tracer: PipelineTracer,
+    ) -> dict:
+
         if not clean_query:
             fallback = self._fallback_response("Empty query")
             return self._wrap_context(clean_query, {}, {}, "", fallback["final_answer"], fallback, pipeline_stages)
 
-        # Static routing removed: intent and response shaping are model-driven.
-        # Execution order:
-        #   co-reference rewrite -> intent model -> entity extraction -> KG retrieval
-        #   -> reasoning/causal/dosage -> A0 -> Af -> faith/safety -> return
-
         # ── Stage 0: Co-reference resolution via conversation history ──────
         if history:
+            tracer.start_step("stage_0_coreference_resolution", {
+                "original_query": clean_query,
+                "history_length": len(history),
+            })
             resolved = await self._resolve_coreferences(clean_query, history)
             if resolved and resolved != clean_query:
-                logger.info("Query rewritten: '%s' -> '%s'", clean_query, resolved)
+                logger.info("STAGE 0: Query rewritten: '%s' -> '%s'", clean_query, resolved)
                 clean_query = resolved
                 pipeline_stages.append("coreference_resolution")
+            tracer.end_step({"resolved_query": clean_query, "was_rewritten": resolved != original_query})
 
         # ── Stage 1: Intent Classification (model-driven) ─────────────────
+        tracer.start_step("stage_1_intent_classification", {"query": clean_query})
         pipeline_stages.append("intent_model_classification")
         followup_intent = await self._classify_followup_intent(original_query, history or [])
+        logger.info("STAGE 1: Intent classified as '%s'", followup_intent)
+        tracer.end_step({"followup_intent": followup_intent})
 
         if followup_intent == "general":
-            logger.info("General intent detected by model; using conversational response")
+            logger.info("STAGE 1: General intent detected → conversational response")
+            tracer.start_step("stage_1b_general_response")
             general_answer = await self._generate_general_answer(clean_query, history=history)
             output = {
                 "final_answer": general_answer,
@@ -216,15 +245,20 @@ class GraphRAGOrchestrator:
                 "confidence_score": None,
             }
             pipeline_stages.append("general_response_model")
-            return self._wrap_context(
+            tracer.set_final_output(general_answer)
+            tracer.end_step({"answer_length": len(general_answer)})
+            result = self._wrap_context(
                 clean_query,
                 {"disease": None, "ingredient": None, "drug": None},
                 {"meta": {"kg_applicable": False}},
                 "", general_answer, output, pipeline_stages,
                 kg_applicable=False,
             )
+            result["pipeline_debug_trace"] = tracer.to_dict()
+            return result
 
         # ── Stage 2: Entity Extraction ─────────────────────────────────────
+        tracer.start_step("stage_2_entity_extraction", {"query": clean_query})
         pipeline_stages.append("entity_extraction")
         entities = self._extract_entities(clean_query)
 
@@ -232,8 +266,17 @@ class GraphRAGOrchestrator:
         ingredient = entities.get("ingredient")
         drug = entities.get("drug")
         traversal_intent = self._resolve_traversal_intent(followup_intent, entities)
+        logger.info(
+            "STAGE 2: Entities → disease='%s' ingredient='%s' drug='%s' | traversal_intent='%s'",
+            disease, ingredient, drug, traversal_intent,
+        )
+        tracer.end_step({"entities": entities, "traversal_intent": traversal_intent})
 
         # ── Stage 3 + 4: Rationale Plan & Graph Retrieval (PARALLEL) ─────
+        tracer.start_step("stage_3_4_rationale_plan_and_graph_retrieval", {
+            "entities": entities,
+            "traversal_intent": traversal_intent,
+        })
         pipeline_stages.append("rationale_plan")
         pipeline_stages.append("intent_routing")
 
@@ -260,8 +303,28 @@ class GraphRAGOrchestrator:
         rationale_result, (subgraph, primary_entity_type, primary_entity_name) = (
             await asyncio.gather(rationale_task, _graph_retrieval_async())
         )
+        logger.info(
+            "STAGE 3: Rationale plan source='%s' steps=%d node_types=%s",
+            rationale_result.get("plan_source"),
+            len(rationale_result.get("rationale_plan", [])),
+            rationale_result.get("relevant_node_types"),
+        )
+        logger.info(
+            "STAGE 4: Graph retrieval → entity_type='%s' entity_name='%s'",
+            primary_entity_type, primary_entity_name,
+        )
+        tracer.end_step({
+            "rationale_plan_source": rationale_result.get("plan_source"),
+            "rationale_plan_steps": len(rationale_result.get("rationale_plan", [])),
+            "relevant_node_types": rationale_result.get("relevant_node_types"),
+            "primary_entity_type": primary_entity_type,
+            "primary_entity_name": primary_entity_name,
+            "subgraph_keys": list(subgraph.keys()) if isinstance(subgraph, dict) else [],
+        })
+        tracer.log_data("rationale_plan_full", rationale_result)
 
         # ── Stage 5: Graph Retrieval (already done by intent routing) ──────
+        tracer.start_step("stage_5_subgraph_filtering")
         pipeline_stages.append("graph_retrieval")
 
         # Apply rationale-based filtering
@@ -269,20 +332,52 @@ class GraphRAGOrchestrator:
             subgraph,
             rationale_result.get("relevant_node_types", []),
         )
+        tracer.end_step({"subgraph_keys": list(subgraph.keys()) if isinstance(subgraph, dict) else []})
 
         # ── Stage 6: Multi-Hop Discovery (if needed) ──────────────────────
         multi_hop_data = None
+        tracer.start_step("stage_6_7_multihop_and_reasoning_builder", {
+            "primary_entity_type": primary_entity_type,
+            "primary_entity_name": primary_entity_name,
+        })
         reasoning = self._build_reasoning(subgraph, primary_entity_type, primary_entity_name)
 
         if multi_hop_discovery.should_activate_discovery(reasoning) and disease:
             pipeline_stages.append("multi_hop_discovery")
+            logger.info("STAGE 6: Multi-hop discovery ACTIVATED for '%s'", disease)
             multi_hop_data = multi_hop_discovery.discover_indirect_compound_links(disease)
             reasoning = multi_hop_discovery.merge_discoveries_into_reasoning(reasoning, multi_hop_data)
+        else:
+            logger.info("STAGE 6: Multi-hop discovery NOT needed")
 
         # ── Stage 7: Reasoning Builder (already called above) ──────────────
         pipeline_stages.append("reasoning_builder")
         graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
-        logger.info("Reasoning built: graph_paths_used=%s", graph_paths_used)
+        logger.info(
+            "STAGE 7: Reasoning built → graph_paths_used=%s ingredients=%d compounds=%d drugs=%d hadith=%d",
+            graph_paths_used,
+            len(reasoning.get("Ingredients", [])),
+            len(reasoning.get("ChemicalCompounds", [])),
+            len(reasoning.get("Drugs", [])),
+            len(reasoning.get("HadithReferences", [])),
+        )
+        tracer.end_step({
+            "graph_paths_used": graph_paths_used,
+            "multi_hop_activated": multi_hop_data is not None,
+            "ingredients_count": len(reasoning.get("Ingredients", [])),
+            "compounds_count": len(reasoning.get("ChemicalCompounds", [])),
+            "drugs_count": len(reasoning.get("Drugs", [])),
+            "hadith_count": len(reasoning.get("HadithReferences", [])),
+            "biochemical_mappings_count": graph_paths_used,
+        })
+        tracer.log_data("reasoning_summary", {
+            "Disease": reasoning.get("Disease"),
+            "Ingredients": [i.get("name") for i in reasoning.get("Ingredients", [])[:10]],
+            "ChemicalCompounds": [c.get("name") for c in reasoning.get("ChemicalCompounds", [])[:10]],
+            "Drugs": [d.get("name") for d in reasoning.get("Drugs", [])[:10]],
+            "HadithReferences": reasoning.get("HadithReferences", [])[:5],
+            "BiochemicalMappings_sample": reasoning.get("BiochemicalMappings", [])[:3],
+        })
 
         # Handle subgraph errors
         subgraph_error = subgraph.get("error") if isinstance(subgraph, dict) else None
@@ -290,18 +385,47 @@ class GraphRAGOrchestrator:
             logger.warning("Subgraph error for disease='%s': %s", primary_entity_name, subgraph_error)
 
         # ── Stage 8: Causal Reasoner ───────────────────────────────────────
+        tracer.start_step("stage_8_causal_reasoner", {"graph_paths_used": graph_paths_used})
         pipeline_stages.append("causal_reasoner")
         causal_analysis = causal_reasoner.run_causal_analysis(reasoning)
+        logger.info(
+            "STAGE 8: Causal analysis ─ total_paths=%d avg_score=%.3f max_score=%.3f",
+            causal_analysis.get("causal_ranking", {}).get("total_paths", 0),
+            causal_analysis.get("causal_ranking", {}).get("avg_causal_score", 0),
+            causal_analysis.get("causal_ranking", {}).get("max_causal_score", 0),
+        )
+        tracer.end_step({
+            "causal_ranking_summary": causal_analysis.get("causal_ranking"),
+            "causal_paths_count": len(causal_analysis.get("causal_paths", [])),
+            "top_3_paths": causal_analysis.get("causal_paths", [])[:3],
+        })
 
         # ── Stage 9: Dosage Validator ──────────────────────────────────────
+        tracer.start_step("stage_9_dosage_validator")
         pipeline_stages.append("dosage_validator")
         dosage_result = validate_dosage(
             reasoning=reasoning,
             causal_paths=causal_analysis.get("causal_paths"),
         )
+        logger.info(
+            "STAGE 9: Dosage validation ─ overall_alignment=%.2f has_data=%s comparisons=%d",
+            dosage_result.overall_alignment_score,
+            dosage_result.has_dosage_data,
+            len(dosage_result.comparisons),
+        )
+        tracer.end_step({
+            "overall_alignment_score": dosage_result.overall_alignment_score,
+            "has_dosage_data": dosage_result.has_dosage_data,
+            "comparison_count": len(dosage_result.comparisons),
+        })
 
         # ── Stage 10: A0 Generation (structured chain-of-thought) ─────────
         # Traversal-intent aware subgraph passed to A0/Af
+        tracer.start_step("stage_10_a0_generation", {
+            "followup_intent": followup_intent,
+            "traversal_intent": traversal_intent,
+            "a0_model": self._a0_model,
+        })
         pipeline_stages.append("a0_generation")
         a0_answer = await self._generate_a0_answer(
             clean_query, reasoning,
@@ -310,8 +434,15 @@ class GraphRAGOrchestrator:
             followup_intent=followup_intent,
             traversal_intent=traversal_intent,
         )
+        logger.info("STAGE 10: A0 draft answer generated (%d chars)", len(a0_answer))
+        logger.info("STAGE 10: A0 answer preview: %.300s", a0_answer)
+        tracer.end_step({"a0_answer_length": len(a0_answer), "a0_answer_preview": a0_answer[:500]})
 
         # ── Stage 11: Af Validation ───────────────────────────────────────
+        tracer.start_step("stage_11_af_validation", {
+            "af_model": self._af_model,
+            "a0_answer_length": len(a0_answer),
+        })
         pipeline_stages.append("af_validation")
         af_answer = await self._validate_answer(
             clean_query,
@@ -320,15 +451,37 @@ class GraphRAGOrchestrator:
             followup_intent=followup_intent,
             traversal_intent=traversal_intent,
         )
+        logger.info("STAGE 11: Af validated answer (%d chars)", len(af_answer))
+        logger.info("STAGE 11: Af answer preview: %.300s", af_answer)
+        tracer.end_step({"af_answer_length": len(af_answer), "af_answer_preview": af_answer[:500]})
 
         # ── Stage 12: Faith Alignment ──────────────────────────────────────
+        tracer.start_step("stage_12_faith_alignment")
         pipeline_stages.append("faith_alignment")
         faith_result = faith_alignment_service.score_faith_alignment(
             reasoning=reasoning,
             answer_text=af_answer,
         )
+        logger.info(
+            "STAGE 12: Faith alignment ─ score=%.3f hadith=%d framing=%.2f science=%.2f miracle=%s",
+            faith_result.faith_alignment_score,
+            faith_result.hadith_count,
+            faith_result.framing_score,
+            faith_result.scientific_backing_score,
+            faith_result.miracle_claims_found,
+        )
+        tracer.end_step({
+            "faith_alignment_score": faith_result.faith_alignment_score,
+            "hadith_present": faith_result.hadith_present,
+            "hadith_count": faith_result.hadith_count,
+            "correct_framing": faith_result.correct_framing,
+            "scientific_backing": faith_result.scientific_backing,
+            "miracle_claims_found": faith_result.miracle_claims_found,
+            "faith_alignment_notes": faith_result.faith_alignment_notes,
+        })
 
         # ── Stage 13: Safety Scorer ────────────────────────────────────────
+        tracer.start_step("stage_13_safety_scorer")
         pipeline_stages.append("safety_scorer")
         evidence_strength = self._compute_evidence_strength(reasoning)
 
@@ -342,6 +495,11 @@ class GraphRAGOrchestrator:
             if base_confidence is not None else None
         )
 
+        logger.info(
+            "STAGE 13: Safety ─ evidence='%s' base_confidence=%s faith_boost=%.3f causal_boost=%.3f final_confidence=%s",
+            evidence_strength, base_confidence, faith_boost, causal_boost, enhanced_confidence,
+        )
+
         output = {
             "final_answer": af_answer,
             "evidence_strength": evidence_strength,
@@ -350,10 +508,25 @@ class GraphRAGOrchestrator:
         }
 
         safe_output = safety_service.apply_safety_checks(reasoning=reasoning, llm_output=output)
+        logger.info(
+            "STAGE 13: Safety checks applied ─ caution_flag=%s notes=%s",
+            safe_output.get("safety", {}).get("caution_flag"),
+            len(safe_output.get("safety", {}).get("caution_notes", [])),
+        )
+        tracer.end_step({
+            "evidence_strength": evidence_strength,
+            "base_confidence": base_confidence,
+            "faith_boost": faith_boost,
+            "causal_boost": causal_boost,
+            "enhanced_confidence": enhanced_confidence,
+            "safety_caution_flag": safe_output.get("safety", {}).get("caution_flag"),
+            "safety_caution_notes": safe_output.get("safety", {}).get("caution_notes"),
+        })
 
         # ── Stage 14: Evaluation (optional) ────────────────────────────────
         eval_result = None
         if self._enable_evaluation:
+            tracer.start_step("stage_14_evaluation")
             pipeline_stages.append("evaluation")
             eval_result = await evaluation_framework.run_evaluation(
                 query=clean_query,
@@ -365,8 +538,11 @@ class GraphRAGOrchestrator:
                 enable_black_box=self._enable_black_box_eval,
             )
             evaluation_framework.save_evaluation(eval_result)
+            logger.info("STAGE 14: Evaluation ─ combined_score=%.3f", eval_result.combined_score if eval_result else 0)
+            tracer.end_step({"evaluation_combined_score": eval_result.combined_score if eval_result else None})
 
         # ── Stage 15: Experiment Logger ────────────────────────────────────
+        tracer.start_step("stage_15_experiment_logger")
         pipeline_stages.append("experiment_logger")
 
         # Build reasoning trace
@@ -425,14 +601,20 @@ class GraphRAGOrchestrator:
 
         # Attach reasoning trace to output
         safe_output["reasoning_trace"] = reasoning_trace
+        tracer.end_step({"experiment_logged": True})
 
+        # \u2500\u2500 Final Summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        tracer.set_final_output(safe_output.get("final_answer", ""))
         logger.info(
-            "Pipeline completed: stages=%d evidence=%s paths=%d confidence=%s faith=%.3f",
+            "\n" + "=" * 80 + "\n"
+            "PIPELINE COMPLETE \u2014 stages=%d evidence=%s paths=%d confidence=%s faith=%.3f\n"
+            "FINAL ANSWER PREVIEW: %.300s\n" + "=" * 80,
             len(pipeline_stages), evidence_strength, graph_paths_used,
             safe_output.get("confidence_score"), faith_result.faith_alignment_score,
+            safe_output.get("final_answer", "")[:300],
         )
 
-        return {
+        result = {
             "query": clean_query,
             "entities": entities,
             "reasoning": reasoning,
@@ -444,7 +626,9 @@ class GraphRAGOrchestrator:
             "af_answer": af_answer,
             "output": safe_output,
             "reasoning_trace": reasoning_trace,
+            "pipeline_debug_trace": tracer.to_dict(),
         }
+        return result
 
     # ── Internal helpers ───────────────────────────────────────────────────
 
@@ -933,6 +1117,7 @@ class GraphRAGOrchestrator:
                 user_prompt=user_prompt,
                 temperature=0.1,
                 model=self._a0_model,
+                _trace_purpose="A0_generation_draft_answer",
             )
         except Exception as exc:
             logger.exception("A0 generation failed")
@@ -995,6 +1180,7 @@ class GraphRAGOrchestrator:
                 user_prompt=user_prompt,
                 temperature=0.1,
                 model=self._af_model,
+                _trace_purpose="Af_validation_answer_refinement",
             )
         except Exception:
             logger.exception("Af validation failed")
@@ -1029,6 +1215,7 @@ class GraphRAGOrchestrator:
                 user_prompt=user_prompt,
                 temperature=0.3,
                 model=self._a0_model,
+                _trace_purpose="general_conversational_response",
             )
         except Exception:
             logger.exception("General response failed")
@@ -1071,6 +1258,7 @@ class GraphRAGOrchestrator:
                 user_prompt=user_prompt,
                 temperature=0.0,
                 model=self._coref_model,
+                _trace_purpose="coreference_resolution",
             )
             # Sanity: if the LLM returns garbage or something way too long, keep original
             rewritten = (rewritten or "").strip().strip('"').strip("'").strip()
@@ -1117,6 +1305,7 @@ class GraphRAGOrchestrator:
                 user_prompt=user_prompt,
                 temperature=0.0,
                 model=self._intent_model,
+                _trace_purpose="followup_intent_classification",
             )
             label = (label or "").strip().lower()
             if label in {"hadith", "ingredient", "technical", "general", "auto"}:

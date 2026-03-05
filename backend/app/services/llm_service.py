@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import httpx
 
@@ -22,9 +23,13 @@ class LLMService:
         user_prompt: str,
         temperature: float = 0.2,
         model: str | None = None,
+        _trace_purpose: str = "",
     ) -> str:
+        from app.services.pipeline_tracer import get_tracer
+
+        used_model = model or self._default_model
         payload = {
-            "model": model or self._default_model,
+            "model": used_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -39,6 +44,16 @@ class LLMService:
 
         endpoint = f"{self._base_url}/chat/completions"
 
+        logger.info(
+            "┌─ LLM CALL [%s] model=%s temp=%.2f system_prompt_len=%d user_prompt_len=%d",
+            _trace_purpose or "unnamed",
+            used_model,
+            temperature,
+            len(system_prompt),
+            len(user_prompt),
+        )
+
+        call_start = time.perf_counter()
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
@@ -83,7 +98,41 @@ class LLMService:
                     body = response.json()
 
                 reply = body["choices"][0]["message"]["content"].strip()
-                logger.debug("LLM completion generated (%s chars)", len(reply))
+                duration_ms = (time.perf_counter() - call_start) * 1000
+
+                logger.info(
+                    "└─ LLM RESPONSE [%s] model=%s chars=%d duration=%.0fms",
+                    _trace_purpose or "unnamed",
+                    used_model,
+                    len(reply),
+                    duration_ms,
+                )
+                logger.debug(
+                    "   LLM SYSTEM PROMPT [%s]: %.500s",
+                    _trace_purpose, system_prompt,
+                )
+                logger.debug(
+                    "   LLM USER PROMPT [%s]: %.500s",
+                    _trace_purpose, user_prompt,
+                )
+                logger.debug(
+                    "   LLM RESPONSE TEXT [%s]: %.500s",
+                    _trace_purpose, reply,
+                )
+
+                # Log to pipeline tracer if active
+                tracer = get_tracer()
+                if tracer:
+                    tracer.log_llm_call(
+                        purpose=_trace_purpose or "unnamed",
+                        model=used_model,
+                        temperature=temperature,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        response=reply,
+                        duration_ms=duration_ms,
+                    )
+
                 return reply
 
             except httpx.HTTPStatusError as exc:
@@ -96,8 +145,33 @@ class LLMService:
                     last_exc = exc
                     await asyncio.sleep(wait)
                     continue
+                # Log non-retryable error to tracer
+                tracer = get_tracer()
+                if tracer:
+                    tracer.log_llm_call(
+                        purpose=_trace_purpose or "unnamed",
+                        model=used_model,
+                        temperature=temperature,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        response="",
+                        duration_ms=(time.perf_counter() - call_start) * 1000,
+                        error=str(exc),
+                    )
                 raise
-            except Exception:
+            except Exception as exc:
+                tracer = get_tracer()
+                if tracer:
+                    tracer.log_llm_call(
+                        purpose=_trace_purpose or "unnamed",
+                        model=used_model,
+                        temperature=temperature,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        response="",
+                        duration_ms=(time.perf_counter() - call_start) * 1000,
+                        error=str(exc),
+                    )
                 raise
 
         # All retries exhausted

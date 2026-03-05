@@ -143,3 +143,46 @@ async def chat(request: ChatRequest) -> ChatResponse:
             graph_paths_used=0,
             confidence_score=None,
         )
+
+
+@app.post("/api/chat/debug")
+async def chat_debug(request: ChatRequest) -> dict:
+    """
+    Same as /api/chat but returns the FULL pipeline debug trace.
+    
+    Includes:
+    - Every LLM call (system prompt, user prompt, model, response, duration)
+    - Every KG Cypher query (query text, parameters, result count, sample)
+    - Every pipeline stage (timing, input/output data)
+    - The final answer and all intermediate data
+    
+    Use this endpoint to trace the exact flow of any query.
+    """
+    pipeline: orchestrator.GraphRAGOrchestrator = app.state.orchestrator
+
+    try:
+        history = [{"role": m.role, "content": m.content} for m in request.history]
+        pipeline_result = await pipeline.process_user_query_with_context_async(
+            request.query, history=history
+        )
+        output = pipeline_result.get("output", {})
+        debug_trace = pipeline_result.get("pipeline_debug_trace", {})
+
+        return {
+            "query": request.query,
+            "final_answer": output.get("final_answer"),
+            "evidence_strength": output.get("evidence_strength"),
+            "graph_paths_used": output.get("graph_paths_used"),
+            "confidence_score": output.get("confidence_score"),
+            "entities": pipeline_result.get("entities"),
+            "a0_answer": pipeline_result.get("a0_answer"),
+            "af_answer": pipeline_result.get("af_answer"),
+            "reasoning_trace": output.get("reasoning_trace"),
+            "pipeline_debug_trace": debug_trace,
+        }
+    except Exception:
+        logger.exception("/api/chat/debug failed")
+        return {
+            "error": "Pipeline debug failed",
+            "query": request.query,
+        }

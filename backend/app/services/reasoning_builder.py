@@ -455,8 +455,19 @@ def _build_biochemical_mappings(
 
 
 def build_graph_reasoning(subgraph: dict) -> dict:
+    import logging
+    from app.services.pipeline_tracer import get_tracer
+
+    _logger = logging.getLogger(__name__)
+
     safe_subgraph = subgraph if isinstance(subgraph, dict) else {}
     nodes_by_label = _collect_nodes_by_label(safe_subgraph)
+
+    _logger.info(
+        "REASONING BUILDER: Input subgraph keys=%s | Detected labels=%s",
+        list(safe_subgraph.keys()),
+        sorted(nodes_by_label.keys()),
+    )
 
     disease_nodes = _ensure_list(nodes_by_label.get("Disease"))
     ingredient_nodes = _ensure_list(nodes_by_label.get("Ingredient"))
@@ -497,6 +508,23 @@ def build_graph_reasoning(subgraph: dict) -> dict:
             "hadith_linking_mode": "dynamic",
         },
     }
+
+    _logger.info(
+        "REASONING BUILDER: Output → ingredients=%d compounds=%d drug_compounds=%d drugs=%d hadith=%d mappings=%d",
+        len(ingredients), len(compounds), len(drug_compounds), len(drugs), len(hadith_refs),
+        len(reasoning["BiochemicalMappings"]),
+    )
+
+    tracer = get_tracer()
+    if tracer:
+        tracer.log_data("reasoning_builder_output_counts", {
+            "ingredients": len(ingredients),
+            "compounds": len(compounds),
+            "drug_compounds": len(drug_compounds),
+            "drugs": len(drugs),
+            "hadith_refs": len(hadith_refs),
+            "biochemical_mappings": len(reasoning["BiochemicalMappings"]),
+        })
 
     return reasoning
 

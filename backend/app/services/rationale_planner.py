@@ -95,6 +95,7 @@ async def generate_rationale_plan(
             user_prompt=user_prompt,
             temperature=0.1,
             model=model,
+            _trace_purpose="rationale_plan_generation",
         )
 
         plan = _extract_json_array(raw)

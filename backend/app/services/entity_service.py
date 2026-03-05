@@ -121,6 +121,8 @@ def _safe_confidence(value) -> float:
 
 
 def _extract_entities_llm_with_confidence(query: str) -> dict[str, _EntityResult]:
+    from app.services.pipeline_tracer import get_tracer
+
     llm_service = _get_llm_service()
     settings = get_settings()
 
@@ -149,6 +151,12 @@ def _extract_entities_llm_with_confidence(query: str) -> dict[str, _EntityResult
         "}"
     )
 
+    used_model = settings.llm_cypher_model or settings.groq_model
+    logger.info(
+        "┌─ ENTITY EXTRACTION LLM call model=%s query='%.100s'",
+        used_model, query,
+    )
+
     raw = ""
     try:
         # Low temperature for deterministic extraction behavior.
@@ -156,9 +164,10 @@ def _extract_entities_llm_with_confidence(query: str) -> dict[str, _EntityResult
             llm_service=llm_service,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            model=settings.llm_cypher_model or settings.groq_model,
+            model=used_model,
             temperature=0.0,
         )
+        logger.info("└─ ENTITY EXTRACTION LLM raw response: %.300s", raw)
     except Exception:
         logger.exception("LLM entity extraction failed")
 
@@ -306,23 +315,49 @@ def extract_entities(query: str) -> dict:
     2) For null/low-confidence entities, fallback to fuzzy matching from Neo4j names.
     3) Return final structured entity JSON.
     """
+    from app.services.pipeline_tracer import get_tracer
+
+    logger.info("═══ ENTITY EXTRACTION START query='%.200s' ═══", query)
+
     llm_results = _extract_entities_llm_with_confidence(query)
     use_fuzzy_fallback = not _is_low_signal_query(query)
+
+    logger.info(
+        "LLM extraction results: disease=%s(%.2f) ingredient=%s(%.2f) drug=%s(%.2f) | fuzzy_fallback=%s",
+        llm_results['disease'].value, llm_results['disease'].confidence,
+        llm_results['ingredient'].value, llm_results['ingredient'].confidence,
+        llm_results['drug'].value, llm_results['drug'].confidence,
+        use_fuzzy_fallback,
+    )
+
     fuzzy_results = _extract_entities_fuzzy_with_confidence(query) if use_fuzzy_fallback else {
         key: _EntityResult(value=None, confidence=0.0) for key in ENTITY_KEYS
     }
 
+    if use_fuzzy_fallback:
+        logger.info(
+            "Fuzzy extraction results: disease=%s(%.2f) ingredient=%s(%.2f) drug=%s(%.2f)",
+            fuzzy_results['disease'].value, fuzzy_results['disease'].confidence,
+            fuzzy_results['ingredient'].value, fuzzy_results['ingredient'].confidence,
+            fuzzy_results['drug'].value, fuzzy_results['drug'].confidence,
+        )
+
     final_entities: dict[str, str | None] = {}
+    merge_decisions: list[str] = []
     for key in ENTITY_KEYS:
         llm_entity = llm_results[key]
         if llm_entity.value is not None and llm_entity.confidence >= FUZZY_CONFIDENCE_THRESHOLD:
             final_entities[key] = llm_entity.value
+            decision = f"{key}='{llm_entity.value}' via LLM (conf={llm_entity.confidence:.2f})"
+            merge_decisions.append(decision)
             logger.info("entity=%s method=LLM value=%s confidence=%.2f", key, llm_entity.value, llm_entity.confidence)
             continue
 
         fuzzy_entity = fuzzy_results[key]
         if fuzzy_entity.value is not None and use_fuzzy_fallback:
             final_entities[key] = fuzzy_entity.value
+            decision = f"{key}='{fuzzy_entity.value}' via FUZZY (conf={fuzzy_entity.confidence:.2f})"
+            merge_decisions.append(decision)
             logger.info(
                 "entity=%s method=FUZZY value=%s confidence=%.2f",
                 key,
@@ -331,12 +366,27 @@ def extract_entities(query: str) -> dict:
             )
         else:
             final_entities[key] = llm_entity.value
+            method = "LLM_LOW_CONFIDENCE_NO_FUZZY" if not use_fuzzy_fallback else "NONE"
+            decision = f"{key}='{llm_entity.value}' via {method}"
+            merge_decisions.append(decision)
             logger.info(
                 "entity=%s method=%s value=%s",
-                key,
-                "LLM_LOW_CONFIDENCE_NO_FUZZY" if not use_fuzzy_fallback else "NONE",
-                llm_entity.value,
+                key, method, llm_entity.value,
             )
+
+    logger.info("═══ ENTITY EXTRACTION RESULT: %s ═══", " | ".join(merge_decisions))
+
+    # Log to tracer
+    tracer = get_tracer()
+    if tracer:
+        tracer.log_data("entity_extraction_merge_decisions", merge_decisions)
+        tracer.log_data("entity_extraction_llm_results", {
+            k: {"value": v.value, "confidence": v.confidence} for k, v in llm_results.items()
+        })
+        if use_fuzzy_fallback:
+            tracer.log_data("entity_extraction_fuzzy_results", {
+                k: {"value": v.value, "confidence": v.confidence} for k, v in fuzzy_results.items()
+            })
 
     return {
         "disease": final_entities.get("disease"),

@@ -341,6 +341,8 @@ def run_causal_analysis(reasoning: dict) -> dict[str, Any]:
             "causal_ranking": CausalRankingSummary.to_dict(),
         }
     """
+    from app.services.pipeline_tracer import get_tracer
+
     try:
         paths = build_causal_paths_from_reasoning(reasoning)
         ranked = rank_causal_paths(paths)
@@ -352,6 +354,29 @@ def run_causal_analysis(reasoning: dict) -> dict[str, Any]:
             summary.avg_causal_score,
             summary.max_causal_score,
         )
+
+        # Log top paths for debugging
+        for i, p in enumerate(ranked[:5]):
+            logger.info(
+                "  Causal path #%d: %s → score=%.4f mapping=%s hops=%d",
+                i + 1,
+                " → ".join(p.causal_chain),
+                p.causal_score,
+                p.mapping_strength_label,
+                p.hop_count,
+            )
+
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_data("causal_analysis_summary", {
+                "total_paths": summary.total_paths,
+                "avg_causal_score": summary.avg_causal_score,
+                "max_causal_score": summary.max_causal_score,
+                "strong_paths": summary.strong_paths,
+                "moderate_paths": summary.moderate_paths,
+                "weak_paths": summary.weak_paths,
+                "top_5_chains": [" → ".join(p.causal_chain) for p in ranked[:5]],
+            })
 
         return {
             "causal_paths": [p.to_dict() for p in ranked],
