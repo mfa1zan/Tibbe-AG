@@ -1,9 +1,9 @@
 .chat-history {
-  @apply flex-1 overflow-y-auto px-4 py-4 pb-32;
+  @apply flex-1 px-4 py-5 md:px-8;
 }
 
-.chat-history-inner {
-  @apply space-y-3;
+.chat-history-virtuoso {
+  @apply h-full;
 }
 
 .typing-wrap {

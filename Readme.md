@@ -9,6 +9,14 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 - React chat interface with typing indicator, provenance display, and responsive layout
 - Dark/light mode, font selection, and primary color customization with local persistence
 - FastAPI backend endpoint: `POST /api/chat`
+- Frontend API adapter with runtime response validation and normalized error categories
+- ESLint setup for React + Hooks code-quality enforcement
+- Markdown rendering (sanitized) for assistant responses
+- Structured evidence field cards rendered in chat bubbles
+- Local message persistence for chat session recovery
+- Route-based app shell (`/chat`, `/history`, `/settings`)
+- Virtualized chat history rendering for better long-conversation performance
+- Route-level code splitting (lazy-loaded pages) to reduce initial frontend bundle cost
 - Query preprocessing (normalization + synonym expansion)
 - Neo4j KG retrieval with TTL caching
 - Async LLM reasoning via Groq-compatible API
@@ -17,6 +25,8 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 ## Tech Stack
 
 - Frontend: React 18, Vite, TailwindCSS
+- Frontend routing/UI performance: React Router, React Virtuoso
+- Frontend quality: ESLint 9 (flat config), React Hooks lint rules
 - Backend: FastAPI, Neo4j Python Driver, HTTPX
 - LLM: Groq Chat Completions API (Llama models)
 
@@ -33,16 +43,18 @@ Tibbe-AG/
 │   │       ├── preprocess.py
 │   │       ├── kg_service.py
 │   │       ├── llm_service.py
-│   │       └── chat_service.py
+│   │       └── orchestrator.py
 │   ├── .env
 │   ├── .env.example
 │   └── requirements.txt
 ├── src/
 │   ├── App.jsx
 │   ├── api.js
-│   ├── context/ThemeContext.jsx
 │   ├── components/
+│   ├── context/ThemeContext.jsx
+│   ├── pages/
 │   └── *.css
+├── eslint.config.js
 ├── .env
 ├── package.json
 └── vite.config.js
@@ -154,8 +166,11 @@ Request:
 
 ```json
 {
-  "message": "What helps with fever?",
-  "session_id": "optional-session-id"
+  "query": "What helps with fever?",
+  "history": [
+    { "role": "user", "content": "What helps with fever?" },
+    { "role": "bot", "content": "..." }
+  ]
 }
 ```
 
@@ -163,10 +178,57 @@ Response:
 
 ```json
 {
-  "reply": "...",
-  "provenance": ["Honey", "Drug X", "Book Y"]
+  "final_answer": "...",
+  "evidence_strength": "weak|moderate|strong",
+  "graph_paths_used": 0,
+  "confidence_score": 0.0,
+  "reasoning_trace": {}
 }
 ```
+
+Notes:
+
+- Frontend maps API fields to UI message fields (`reply`, `confidenceScore`, etc.) in `src/api.js`.
+- `structured_fields` from backend payloads are rendered as structured evidence cards in assistant messages.
+- Frontend optimizations do **not** change the backend contract: request (`query`, `history`) and response (`final_answer`, metadata) remain identical.
+
+## Code Quality
+
+Run lint checks:
+
+```bash
+npm run lint
+```
+
+Auto-fix lint issues where possible:
+
+```bash
+npm run lint:fix
+```
+
+Current lint config is defined in `eslint.config.js` and enforces:
+
+- core JavaScript correctness rules
+- React Hooks best practices
+- no unused variables and consistent module hygiene
+
+## Frontend Status (March 2026)
+
+Implemented baseline:
+
+- Runtime API payload validation + normalized frontend error handling
+- Safer conversation history composition in chat send flow
+- Project-wide ESLint command + configuration
+- Streaming-capable frontend rendering (incremental assistant output playback)
+- User-controlled stop/cancel generation action in chat input
+- Structured fields rendering in chat bubbles
+- Sanitized markdown rendering for assistant answers
+- Chat message persistence in local storage with restore on refresh
+
+Planned next modernization steps:
+
+- Mobile input layout improvements and responsive spacing refinements
+- End-to-end tests for chat, settings, and history routes
 
 ## Build
 

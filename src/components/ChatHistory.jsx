@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import ChatBubble from './ChatBubble';
 import './ChatHistory.css';
 
@@ -20,22 +21,23 @@ function TypingIndicator() {
 const SCROLL_THRESHOLD = 120;
 
 function ChatHistory({ messages, isTyping }) {
-  const containerRef = useRef(null);
-  const endRef = useRef(null);
+  const virtuosoRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const hasStreamingMessage = messages.some((message) => message.isStreaming);
 
   /** Track whether the user has scrolled away from the bottom. */
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    isNearBottomRef.current = distanceFromBottom <= SCROLL_THRESHOLD;
+  const handleBottomStateChange = useCallback((isAtBottom) => {
+    isNearBottomRef.current = isAtBottom;
   }, []);
 
   /** Auto-scroll only when user is near the bottom. */
   useEffect(() => {
     if (isNearBottomRef.current) {
-      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      virtuosoRef.current?.scrollToIndex({
+        index: Math.max(0, messages.length - 1),
+        align: 'end',
+        behavior: 'smooth'
+      });
     }
   }, [messages, isTyping]);
 
@@ -44,22 +46,31 @@ function ChatHistory({ messages, isTyping }) {
     const lastMsg = messages[messages.length - 1];
     if (lastMsg?.role === 'user') {
       isNearBottomRef.current = true;
-      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      virtuosoRef.current?.scrollToIndex({
+        index: Math.max(0, messages.length - 1),
+        align: 'end',
+        behavior: 'smooth'
+      });
     }
   }, [messages]);
 
   return (
-    <section className="chat-history" ref={containerRef} onScroll={handleScroll}>
-      <div className="chat-history-inner">
-        {messages.map((message) => (
-          <ChatBubble key={message.id} message={message} />
-        ))}
-
-        {isTyping ? <TypingIndicator /> : null}
-        <div ref={endRef} />
-      </div>
+    <section className="chat-history">
+      <Virtuoso
+        ref={virtuosoRef}
+        className="chat-history-virtuoso"
+        data={messages}
+        overscan={220}
+        atBottomThreshold={SCROLL_THRESHOLD}
+        atBottomStateChange={handleBottomStateChange}
+        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        itemContent={(_, message) => <ChatBubble message={message} />}
+        components={{
+          Footer: () => (isTyping && !hasStreamingMessage ? <TypingIndicator /> : null)
+        }}
+      />
     </section>
   );
 }
 
-export default ChatHistory;
+export default memo(ChatHistory);

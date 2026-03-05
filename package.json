@@ -8,17 +8,31 @@
     "dev:frontend": "vite",
     "dev:backend": "./.venv/bin/python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8010",
     "dev:full": "concurrently -k -n frontend,backend \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.3",
+    "react-router-dom": "^6.30.0",
+    "react-virtuoso": "^4.12.5",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.22.0",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "autoprefixer": "^10.4.20",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "vite": "^5.4.11"
