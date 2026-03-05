@@ -23,6 +23,7 @@ const SCROLL_THRESHOLD = 120;
 function ChatHistory({ messages, isTyping }) {
   const virtuosoRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const hasStreamingMessage = messages.some((message) => message.isStreaming);
 
   /** Track whether the user has scrolled away from the bottom. */
   const handleBottomStateChange = useCallback((isAtBottom) => {
@@ -65,7 +66,7 @@ function ChatHistory({ messages, isTyping }) {
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         itemContent={(_, message) => <ChatBubble message={message} />}
         components={{
-          Footer: () => (isTyping ? <TypingIndicator /> : null)
+          Footer: () => (isTyping && !hasStreamingMessage ? <TypingIndicator /> : null)
         }}
       />
     </section>

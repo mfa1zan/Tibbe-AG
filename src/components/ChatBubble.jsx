@@ -24,7 +24,7 @@ function ChatBubble({ message }) {
   return (
     <article
       className={`chat-bubble-row ${isUser ? 'chat-bubble-row-user' : 'chat-bubble-row-bot'} ${
-        !isUser ? 'fade-in' : ''
+        isUser ? 'message-send-pop' : 'fade-in'
       }`}
     >
       <div
@@ -33,6 +33,12 @@ function ChatBubble({ message }) {
       >
         {isUser ? (
           <p className="chat-message-text">{displayText}</p>
+        ) : message.isStreaming && !message.content ? (
+          <div className="chat-streaming-indicator" aria-label="Assistant is replying">
+            <span className="chat-streaming-dot chat-streaming-dot-delay-1" />
+            <span className="chat-streaming-dot chat-streaming-dot-delay-2" />
+            <span className="chat-streaming-dot" />
+          </div>
         ) : (
           <div className="chat-markdown-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>

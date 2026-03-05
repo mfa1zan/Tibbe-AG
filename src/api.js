@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-const PLACEHOLDER_BOT_REPLY = 'Hello, I am PRO-MedGraph. How can I help you today?';
-
 const chatResponseSchema = z.object({
   final_answer: z.string().min(1),
   evidence_strength: z.string().optional(),
@@ -120,19 +118,7 @@ function sleep(ms, signal) {
 }
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { usePlaceholder = false, history = [], signal } = options;
-
-  if (usePlaceholder) {
-    return {
-      reply: PLACEHOLDER_BOT_REPLY,
-      evidenceStrength: 'moderate',
-      graphPathsUsed: 1,
-      confidenceScore: 0.6,
-      safety: null,
-      reasoningTrace: null,
-      structuredFields: null
-    };
-  }
+  const { history = [], signal } = options;
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
