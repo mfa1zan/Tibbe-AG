@@ -143,7 +143,6 @@ function AppShell() {
           structuredFields
         } =
           await streamMessageToChatApi(messageText, {
-            usePlaceholder: import.meta.env.VITE_USE_PLACEHOLDER_BOT === 'true',
             history: historyForApi,
             signal: abortController.signal,
             onChunk: (chunk) => {
@@ -203,33 +202,34 @@ function AppShell() {
 
   return (
     <main className="app-shell">
-      <section className="app-container">
-        <header className="app-header">
-          <div className="app-header-row">
-            <h1 className="app-title">PRO-MedGraph</h1>
-            <nav className="app-nav" aria-label="Primary">
-              <NavLink
-                to="/chat"
-                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-              >
-                Chat
-              </NavLink>
-              <NavLink
-                to="/history"
-                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-              >
-                History
-              </NavLink>
-              <NavLink
-                to="/settings"
-                className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-              >
-                Settings
-              </NavLink>
-            </nav>
-          </div>
-        </header>
+      <aside className="app-sidebar" aria-label="Primary navigation">
+        <div className="app-sidebar-brand">
+          <h1 className="app-title">PRO-MedGraph</h1>
+          <p className="app-sidebar-subtitle">Biomedical assistant</p>
+        </div>
+        <nav className="app-nav" aria-label="Primary">
+          <NavLink
+            to="/chat"
+            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+          >
+            Chat
+          </NavLink>
+          <NavLink
+            to="/history"
+            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+          >
+            History
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+          >
+            Settings
+          </NavLink>
+        </nav>
+      </aside>
 
+      <section className="app-main">
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route

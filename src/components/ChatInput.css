@@ -1,32 +1,32 @@
 .chat-input-footer {
-  @apply sticky bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur transition-colors dark:border-slate-800 dark:bg-slate-900/95;
-  box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08);
+  @apply sticky bottom-0 border-t border-slate-200/80 bg-white/90 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-900/85;
+  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.1);
 }
 
 .chat-input-container {
-  @apply mx-auto w-full max-w-4xl px-4 py-3;
+  @apply mx-auto w-full max-w-5xl px-4 py-3;
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .chat-input-form {
-  @apply flex items-center gap-2;
+  @apply flex items-end gap-2;
 }
 
 .chat-input-field {
-  @apply flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800;
+  @apply min-h-[48px] max-h-[180px] flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800;
 }
 
 .chat-input-field:focus-visible {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 24%, transparent);
 }
 
 .chat-send-button {
-  @apply rounded-xl px-4 py-2.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-600;
+  @apply h-12 rounded-2xl px-5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-600;
 }
 
 .chat-cancel-button {
-  @apply rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+  @apply h-12 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
 }
 
 .chat-input-error {
