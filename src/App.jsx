@@ -33,6 +33,10 @@ function sanitizeStoredMessages(rawValue) {
       graphPathsUsed: Number.isFinite(entry.graphPathsUsed) ? entry.graphPathsUsed : undefined,
       reasoningTrace:
         entry.reasoningTrace && typeof entry.reasoningTrace === 'object' ? entry.reasoningTrace : null,
+      pipelineDebugTrace:
+        entry.pipelineDebugTrace && typeof entry.pipelineDebugTrace === 'object'
+          ? entry.pipelineDebugTrace
+          : null,
       safety: entry.safety && typeof entry.safety === 'object' ? entry.safety : null,
       structuredFields:
         entry.structuredFields && typeof entry.structuredFields === 'object' ? entry.structuredFields : null
@@ -140,6 +144,7 @@ function AppShell() {
           confidenceScore,
           safety,
           reasoningTrace,
+          pipelineDebugTrace,
           structuredFields
         } =
           await streamMessageToChatApi(messageText, {
@@ -172,6 +177,7 @@ function AppShell() {
                   confidenceScore,
                   safety,
                   reasoningTrace,
+                  pipelineDebugTrace,
                   structuredFields
                 }
               : item

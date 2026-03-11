@@ -7,7 +7,8 @@ const chatResponseSchema = z.object({
   confidence_score: z.number().nullable().optional(),
   safety: z.record(z.unknown()).nullable().optional(),
   reasoning_trace: z.record(z.unknown()).nullable().optional(),
-  structured_fields: z.record(z.unknown()).nullable().optional()
+  structured_fields: z.record(z.unknown()).nullable().optional(),
+  pipeline_debug_trace: z.record(z.unknown()).nullable().optional()
 });
 
 export const CHAT_API_ERROR_CODE = {
@@ -126,7 +127,7 @@ export async function sendMessageToChatApi(message, options = {}) {
 
   let response;
   try {
-    response = await fetch('/api/chat', {
+    response = await fetch('/api/chat/debug', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -204,6 +205,10 @@ export async function sendMessageToChatApi(message, options = {}) {
     confidenceScore: typeof data.confidence_score === 'number' ? data.confidence_score : null,
     safety: data?.safety && typeof data.safety === 'object' ? data.safety : null,
     reasoningTrace: data?.reasoning_trace && typeof data.reasoning_trace === 'object' ? data.reasoning_trace : null,
+    pipelineDebugTrace:
+      data?.pipeline_debug_trace && typeof data.pipeline_debug_trace === 'object'
+        ? data.pipeline_debug_trace
+        : null,
     structuredFields:
       data?.structured_fields && typeof data.structured_fields === 'object'
         ? data.structured_fields

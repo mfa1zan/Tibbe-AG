@@ -1,0 +1,170 @@
+.debug-trace-panel {
+  margin-top: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--panel-bg, rgba(15, 23, 42, 0.25));
+  padding: 0.5rem;
+}
+
+.debug-trace-toggle {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--surface-bg, rgba(15, 23, 42, 0.35));
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.debug-trace-toggle:hover {
+  background: var(--hover-bg, rgba(148, 163, 184, 0.15));
+}
+
+.debug-trace-body {
+  margin-top: 0.5rem;
+  max-height: 440px;
+  overflow-y: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--surface-bg, rgba(15, 23, 42, 0.35));
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.75rem;
+  padding: 0.75rem;
+}
+
+.debug-trace-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.debug-trace-copy-button {
+  border-radius: 0.4rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--hover-bg, rgba(148, 163, 184, 0.18));
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+
+.debug-trace-copy-button:hover {
+  background: var(--hover-bg, rgba(148, 163, 184, 0.28));
+}
+
+.debug-trace-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.debug-trace-summary-list {
+  margin: 0.45rem 0 0.8rem 1rem;
+  padding: 0;
+}
+
+.debug-trace-summary-list li {
+  margin: 0.2rem 0;
+}
+
+.debug-trace-empty {
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.debug-step-list,
+.debug-call-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debug-step-item,
+.debug-call-item {
+  border-radius: 0.4rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--item-bg, rgba(148, 163, 184, 0.08));
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.debug-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.debug-step-index {
+  border-radius: 0.25rem;
+  background: var(--hover-bg, rgba(148, 163, 184, 0.2));
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.38rem;
+}
+
+.debug-step-name {
+  font-weight: 600;
+}
+
+.debug-step-duration {
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.debug-step-details {
+  margin-top: 0.4rem;
+}
+
+.debug-step-details summary {
+  cursor: pointer;
+  color: var(--text-secondary, #cbd5e1);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.debug-step-io-grid {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .debug-step-io-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.debug-step-io-title {
+  margin: 0 0 0.25rem;
+  color: var(--text-secondary, #cbd5e1);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.debug-step-io-grid pre,
+.debug-call-item pre {
+  margin: 0;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--code-bg, rgba(15, 23, 42, 0.5));
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.68rem;
+  padding: 0.45rem;
+}

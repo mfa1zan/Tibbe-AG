@@ -2,6 +2,7 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import DebugTracePanel from './DebugTracePanel';
 import ReasoningPanel from './ReasoningPanel';
 import './ChatBubble.css';
 
@@ -56,6 +57,9 @@ function ChatBubble({ message }) {
         {hasStructuredFields ? <StructuredFieldsCard fields={structuredFields} /> : null}
         {!isUser && message.reasoningTrace && (
           <ReasoningPanel trace={message.reasoningTrace} />
+        )}
+        {!isUser && message.pipelineDebugTrace && (
+          <DebugTracePanel trace={message.pipelineDebugTrace} />
         )}
       </div>
     </article>
