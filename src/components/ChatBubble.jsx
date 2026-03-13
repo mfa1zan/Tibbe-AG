@@ -7,6 +7,7 @@ import './ChatBubble.css';
 
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
+  const isStatusMessage = message.variant === 'status';
   const displayText = message.content || (message.isStreaming ? '...' : '');
   const structuredFields = message.structuredFields;
   const hasStructuredFields =
@@ -20,6 +21,14 @@ function ChatBubble({ message }) {
   const hasPaths = Number.isFinite(message.graphPathsUsed);
   const hasEvidenceStrength = typeof message.evidenceStrength === 'string' && message.evidenceStrength.length > 0;
   const showMeta = !isUser && (hasConfidence || hasPaths || hasEvidenceStrength);
+
+  if (isStatusMessage) {
+    return (
+      <article className="chat-status-row fade-in" aria-live="polite">
+        <p className="chat-status-text">{displayText}</p>
+      </article>
+    );
+  }
 
   return (
     <article

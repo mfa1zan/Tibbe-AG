@@ -33,38 +33,60 @@ function ChatInput({ value, onChange, onSend, onCancel, disabled, isGenerating, 
     <footer className="chat-input-footer">
       <div className="chat-input-container">
         <form onSubmit={handleSubmit} className="chat-input-form">
-          <textarea
-            ref={inputRef}
-            aria-label="Type your biomedical question"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            rows={1}
-            placeholder="Type your biomedical question..."
-            className="chat-input-field"
-          />
-          <button
-            type="submit"
-            aria-label="Send message"
-            disabled={disabled || !value.trim()}
-            className="chat-send-button"
-            style={{
-              backgroundColor: disabled || !value.trim() ? undefined : 'var(--primary-color)'
-            }}
-          >
-            Send
-          </button>
-          {isGenerating ? (
-            <button
-              type="button"
-              aria-label="Stop generation"
-              onClick={onCancel}
-              className="chat-cancel-button"
-            >
-              Stop
-            </button>
-          ) : null}
+          <div className="chat-input-shell">
+            <textarea
+              ref={inputRef}
+              aria-label="Type your biomedical question"
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={handleKeyDown}
+              onInput={handleInput}
+              rows={1}
+              placeholder="Type your biomedical question..."
+              className="chat-input-field"
+            />
+            {isGenerating ? (
+              <button
+                type="button"
+                aria-label="Stop generation"
+                onClick={onCancel}
+                className="chat-inline-action-button chat-inline-action-stop"
+              >
+                ⏹
+              </button>
+            ) : (
+              <button
+                type="submit"
+                aria-label="Send message"
+                disabled={disabled || !value.trim()}
+                className="chat-inline-action-button chat-inline-action-send"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 19V5"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M6 11L12 5L18 11"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
         </form>
         {error ? <p className="chat-input-error">{error}</p> : null}
       </div>

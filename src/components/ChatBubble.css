@@ -10,6 +10,16 @@
   @apply justify-start;
 }
 
+.chat-status-row {
+  @apply flex justify-start py-1;
+}
+
+.chat-status-text {
+  @apply rounded-md px-2 py-1 text-xs font-medium;
+  color: color-mix(in srgb, var(--primary-color) 38%, #94a3b8);
+  background-color: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
 .chat-bubble {
   @apply max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm md:max-w-[80%];
 }

@@ -9,24 +9,41 @@
 }
 
 .chat-input-form {
-  @apply flex items-end gap-2;
+  @apply w-full;
 }
 
-.chat-input-field {
-  @apply min-h-[48px] max-h-[180px] flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800;
+.chat-input-shell {
+  @apply flex w-full items-center gap-2 rounded-2xl border border-slate-300 bg-white px-3 transition dark:border-slate-700 dark:bg-slate-950;
 }
 
-.chat-input-field:focus-visible {
+.chat-input-shell:focus-within {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 24%, transparent);
 }
 
-.chat-send-button {
-  @apply h-12 rounded-2xl px-5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-600;
+.chat-input-field {
+  @apply min-h-[48px] max-h-[180px] flex-1 resize-none overflow-y-auto bg-transparent py-3 text-sm text-slate-900 outline-none dark:text-slate-100;
+  border: 0;
+  line-height: 1.5;
 }
 
-.chat-cancel-button {
-  @apply h-12 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+.chat-inline-action-button {
+  @apply inline-flex items-center justify-center text-sm leading-none font-medium transition;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.chat-inline-action-send {
+  @apply h-10 w-10 rounded-full text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-600;
+  background-color: var(--primary-color);
+}
+
+.chat-inline-action-stop {
+  @apply h-10 w-10 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+}
+
+.chat-inline-action-button svg {
+  display: block;
 }
 
 .chat-input-error {
