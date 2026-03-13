@@ -136,6 +136,13 @@ export async function sendMessageToChatApi(message, options = {}) {
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
+      if (signal?.aborted) {
+        throw new ChatApiError('Chat request cancelled', {
+          code: CHAT_API_ERROR_CODE.CANCELLED,
+          retriable: true
+        });
+      }
+
       throw new ChatApiError('Chat request timed out', {
         code: CHAT_API_ERROR_CODE.TIMEOUT,
         retriable: true
