@@ -28,6 +28,7 @@ function sanitizeStoredMessages(rawValue) {
       id: typeof entry.id === 'string' && entry.id ? entry.id : crypto.randomUUID(),
       role: entry.role === 'user' ? 'user' : 'bot',
       content: typeof entry.content === 'string' ? entry.content : '',
+      variant: entry.variant === 'status' ? 'status' : undefined,
       confidenceScore: typeof entry.confidenceScore === 'number' ? entry.confidenceScore : null,
       evidenceStrength: typeof entry.evidenceStrength === 'string' ? entry.evidenceStrength : undefined,
       graphPathsUsed: Number.isFinite(entry.graphPathsUsed) ? entry.graphPathsUsed : undefined,
@@ -179,15 +180,29 @@ function AppShell() {
         );
       } catch (error) {
         const normalizedError = normalizeChatError(error);
-        setMessages((current) =>
-          current.filter((item) => {
-            if (normalizedError.code === CHAT_API_ERROR_CODE.CANCELLED) {
-              return item.id !== streamingBotMessageId;
+        setMessages((current) => {
+          if (normalizedError.code === CHAT_API_ERROR_CODE.CANCELLED) {
+            const streamingMessage = current.find((item) => item.id === streamingBotMessageId);
+            const partialContent =
+              streamingMessage && typeof streamingMessage.content === 'string'
+                ? streamingMessage.content.trim()
+                : '';
+
+            const withoutStreaming = current.filter((item) => item.id !== streamingBotMessageId);
+
+            if (partialContent) {
+              return [
+                ...withoutStreaming,
+                createMessage('bot', partialContent),
+                createMessage('bot', 'Request aborted by user.', { variant: 'status' })
+              ];
             }
 
-            return item.id !== optimisticMessage.id && item.id !== streamingBotMessageId;
-          })
-        );
+            return [...withoutStreaming, createMessage('bot', 'Request aborted by user.', { variant: 'status' })];
+          }
+
+          return current.filter((item) => item.id !== optimisticMessage.id && item.id !== streamingBotMessageId);
+        });
         if (normalizedError.code !== CHAT_API_ERROR_CODE.CANCELLED) {
           setError(normalizedError.userMessage);
         }
