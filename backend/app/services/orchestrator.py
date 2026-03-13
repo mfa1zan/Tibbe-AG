@@ -31,7 +31,6 @@ import asyncio
 from contextvars import copy_context
 import json
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
@@ -764,13 +763,22 @@ class GraphRAGOrchestrator:
 
     def _resolve_traversal_intent(self, followup_intent: str, entities: dict[str, Any]) -> str:
         label = (followup_intent or "").strip().lower()
+        ingredient_entity = entities.get("ingredient") if isinstance(entities, dict) else None
         drug_entity = entities.get("drug") if isinstance(entities, dict) else None
 
+        if label == "ingredient" and isinstance(drug_entity, str) and drug_entity.strip():
+            return "drug"
         if label in {"cure", "hadith", "ingredient"}:
             return "cure"
-        if label in {"reasoning", "technical", "mechanism", "chemical"}:
+        if label in {"reasoning", "technical"}:
             return "reasoning"
-        if label in {"drug", "drug_substitute"} or (isinstance(drug_entity, str) and drug_entity.strip()):
+        if label in {"drug_substitute", "drug"}:
+            return "drug"
+        if label in {"mechanism", "chemical"}:
+            return "reasoning"
+        if isinstance(ingredient_entity, str) and ingredient_entity.strip() and isinstance(drug_entity, str) and drug_entity.strip():
+            return "drug"
+        if label == "drug" or (isinstance(drug_entity, str) and drug_entity.strip()):
             return "drug"
         if label in {"full", "auto", ""}:
             return "full"
@@ -935,8 +943,7 @@ class GraphRAGOrchestrator:
                         ingredient,
                     )
                 logger.info("Intent routing: INGREDIENT query for '%s'", ingredient)
-                if traversal_intent == "drug":
-                    logger.info("Intent routing: applying ingredient drug-substitute traversal for '%s'", ingredient)
+                if traversal_intent == "drug" and hasattr(graph_service, "get_ingredient_drug_substitute_subgraph"):
                     subgraph = graph_service.get_ingredient_drug_substitute_subgraph(ingredient) or {}
                 else:
                     subgraph = self._ingredient_subgraph_fetcher(ingredient) or {}
@@ -1131,14 +1138,85 @@ class GraphRAGOrchestrator:
         except Exception as exc:
             logger.exception("A0 generation failed")
             if "rate-limit" in str(exc).lower() or "429" in str(exc):
-                return (
-                    "I’m temporarily rate-limited by the language model provider, so I can’t "
-                    "complete this answer right now. Please try again shortly."
-                )
+                return self._build_graph_fallback_answer(query=query, reasoning=reasoning)
             return (
                 "I could not generate a complete graph-grounded draft answer. "
                 "Available evidence appears limited, so please refine the query."
             )
+
+    @staticmethod
+    def _build_graph_fallback_answer(query: str, reasoning: dict) -> str:
+        """Build a deterministic response from graph reasoning when LLM generation is unavailable."""
+        if not isinstance(reasoning, dict):
+            return (
+                "I’m temporarily rate-limited by the language model provider. "
+                "Please try again shortly."
+            )
+
+        meta = reasoning.get("meta") if isinstance(reasoning.get("meta"), dict) else {}
+        primary_entity_type = (meta.get("primary_entity_type") or "").strip()
+        primary_entity_name = (meta.get("primary_entity_name") or "the requested entity").strip()
+
+        def _names(items: Any, key: str = "name", max_items: int = 6) -> list[str]:
+            if not isinstance(items, list):
+                return []
+            out: list[str] = []
+            for item in items:
+                if isinstance(item, dict):
+                    value = item.get(key)
+                    if isinstance(value, str) and value.strip() and value.strip() not in out:
+                        out.append(value.strip())
+                elif isinstance(item, str) and item.strip() and item.strip() not in out:
+                    out.append(item.strip())
+                if len(out) >= max_items:
+                    break
+            return out
+
+        ingredients = _names(reasoning.get("Ingredients"), max_items=8)
+        diseases = _names(reasoning.get("Diseases"), max_items=4)
+        drugs = _names(reasoning.get("Drugs"), max_items=8)
+        mappings = reasoning.get("BiochemicalMappings") if isinstance(reasoning.get("BiochemicalMappings"), list) else []
+        has_mappings = len(mappings) > 0
+
+        if primary_entity_type == "Drug":
+            if ingredients:
+                ingredient_list = ", ".join(ingredients[:6])
+                disease_text = f" These ingredients are connected to conditions such as {', '.join(diseases[:3])}." if diseases else ""
+                mapping_text = " Mapping strength is graph-derived and may include weak links." if has_mappings else ""
+                return (
+                    f"Based on current graph evidence, ingredient alternatives linked to {primary_entity_name} include: {ingredient_list}."
+                    f"{disease_text}{mapping_text} Please consult a healthcare professional before changing treatment."
+                )
+            return (
+                f"I found the drug node for {primary_entity_name}, but no ingredient alternatives are currently linked in the graph. "
+                "Please try a more specific form/brand name or ask for related compounds."
+            )
+
+        if primary_entity_type == "Ingredient":
+            if drugs:
+                drug_list = ", ".join(drugs[:6])
+                mapping_text = " Mapping strength is graph-derived and may include weak links." if has_mappings else ""
+                return (
+                    f"Based on current graph evidence, drug alternatives linked to {primary_entity_name} include: {drug_list}."
+                    f"{mapping_text} Please consult a healthcare professional before use."
+                )
+            return (
+                f"I found the ingredient {primary_entity_name}, but no linked drug alternatives were returned from the graph right now."
+            )
+
+        if primary_entity_type == "Disease":
+            if ingredients:
+                ingredient_list = ", ".join(ingredients[:6])
+                return (
+                    f"Based on current graph evidence, ingredients associated with {primary_entity_name} include: {ingredient_list}. "
+                    "Please consult a healthcare professional before treatment changes."
+                )
+
+        return (
+            "I’m temporarily rate-limited by the language model provider. "
+            "Graph retrieval completed, but I couldn’t generate a full narrative answer right now. "
+            "Please try again shortly."
+        )
 
     async def _validate_answer(
         self,
@@ -1241,21 +1319,6 @@ class GraphRAGOrchestrator:
         If the query already looks self-contained the LLM returns it unchanged.
         Only the last 6 exchanges are considered to limit token use.
         """
-        pronoun_pattern = re.compile(r"\b(it|this|that|they|them)\b", re.IGNORECASE)
-        if not pronoun_pattern.search(query or ""):
-            return query
-
-        original_entities = self._extract_entities(query)
-        protected_tokens = [
-            value.strip()
-            for value in (
-                original_entities.get("disease"),
-                original_entities.get("ingredient"),
-                original_entities.get("drug"),
-            )
-            if isinstance(value, str) and value.strip()
-        ]
-
         recent = history[-6:]
         convo_lines = "\n".join(
             f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:300]}"
@@ -1265,19 +1328,13 @@ class GraphRAGOrchestrator:
         system_prompt = (
             "You are a query rewriter. Given a conversation history and the "
             "latest user message, rewrite the user message so it is fully "
-            "self-contained by resolving only pronouns: it, this, that, they, them.\n"
-            "STRICT ENTITY PRESERVATION RULE: named entities must NEVER be rewritten.\n"
-            "Ingredient names, disease names, and drug names must remain unchanged.\n"
-            "If the latest user message already contains a specific entity name, keep the exact token unchanged.\n"
-            "Forbidden rewrites include examples like: heena→honey, zamzam→water, black seed→cumin.\n"
-            "Do NOT paraphrase, normalize, translate, or substitute named entities.\n"
-            "If no pronoun resolution is needed, return the latest user message unchanged.\n"
-            "Keep the rewrite short — one sentence.\n"
+            "self-contained (resolve pronouns, 'it', 'that', 'the hadith you "
+            "mentioned', etc.). Keep the rewrite short — one sentence.\n"
+            "If the message is already self-contained, return it unchanged.\n"
             "Output ONLY the rewritten query, nothing else."
         )
         user_prompt = (
             f"Conversation history:\n{convo_lines}\n\n"
-            f"Protected entity tokens (must stay exact): {protected_tokens}\n\n"
             f"Latest user message: {query}\n\n"
             f"Rewritten query:"
         )
@@ -1294,37 +1351,6 @@ class GraphRAGOrchestrator:
             rewritten = (rewritten or "").strip().strip('"').strip("'").strip()
             if not rewritten or len(rewritten) > len(query) * 4:
                 return query
-
-            lowered_rewritten = rewritten.lower()
-            for token in protected_tokens:
-                if token.lower() not in lowered_rewritten:
-                    logger.warning(
-                        "Coreference rewrite rejected: protected token '%s' missing in rewritten query",
-                        token,
-                    )
-                    return query
-
-            rewritten_entities = self._extract_entities(rewritten)
-            for key in ("disease", "ingredient", "drug"):
-                original_value = original_entities.get(key)
-                rewritten_value = rewritten_entities.get(key)
-
-                if isinstance(original_value, str) and original_value.strip():
-                    if not (isinstance(rewritten_value, str) and rewritten_value.strip()):
-                        logger.warning(
-                            "Coreference rewrite rejected: detected '%s' entity was dropped (%s)",
-                            key,
-                            original_value,
-                        )
-                        return query
-                    if original_value.strip().lower() != rewritten_value.strip().lower():
-                        logger.warning(
-                            "Coreference rewrite rejected: detected '%s' entity changed '%s' -> '%s'",
-                            key,
-                            original_value,
-                            rewritten_value,
-                        )
-                        return query
             return rewritten
         except Exception:
             logger.warning("Coreference resolution failed; using original query")
@@ -1345,14 +1371,11 @@ class GraphRAGOrchestrator:
 
         system_prompt = (
             "You are an intent classifier for follow-up chat messages.\n"
-            "Choose exactly one label: hadith, ingredient, technical, mechanism, chemical, drug_substitute, general, auto.\n"
+            "Choose exactly one label: hadith, ingredient, technical, general, auto.\n"
             "Definitions:\n"
             "- hadith: asks for hadith/sunnah/reference/citation support\n"
-            "- ingredient: asks what food/herb/remedy to use, or 'what cures X'\n"
-            "- technical: asks for compounds/mappings/reasoning details\n"
-            "- mechanism: asks 'how does X cure Y', 'how does it work', 'what is the mechanism'\n"
-            "- chemical: asks about chemical compounds in an ingredient (e.g. 'what chemicals are in X')\n"
-            "- drug_substitute: asks for natural alternatives to a drug/ingredient (e.g. 'instead of using X')\n"
+            "- ingredient: asks what food/herb/remedy/ingredient to use, including replacing a drug with ingredient alternatives\n"
+            "- technical: asks for compounds/mechanism/mappings/reasoning details\n"
             "- general: casual chat/greeting/non-medical\n"
             "- auto: unclear/none of the above\n"
             "Output ONLY the label."
@@ -1372,7 +1395,7 @@ class GraphRAGOrchestrator:
                 _trace_purpose="followup_intent_classification",
             )
             label = (label or "").strip().lower()
-            if label in {"hadith", "ingredient", "technical", "mechanism", "chemical", "drug_substitute", "general", "auto"}:
+            if label in {"hadith", "ingredient", "technical", "general", "auto"}:
                 return label
             return "auto"
         except Exception:
