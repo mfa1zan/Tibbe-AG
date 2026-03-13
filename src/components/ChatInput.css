@@ -49,3 +49,7 @@
 .chat-input-error {
   @apply mt-2 text-sm text-red-600;
 }
+
+.chat-input-note {
+  @apply mt-3 text-center text-xs text-slate-500 dark:text-slate-400;
+}

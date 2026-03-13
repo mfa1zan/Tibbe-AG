@@ -89,6 +89,7 @@ function ChatInput({ value, onChange, onSend, onCancel, disabled, isGenerating, 
           </div>
         </form>
         {error ? <p className="chat-input-error">{error}</p> : null}
+        <p className="chat-input-note">PRO-MedGraph can make mistakes. Check important information.</p>
       </div>
     </footer>
   );
