@@ -1,9 +1,13 @@
+import logging
+import time
 from functools import lru_cache
 from typing import Any
 
 from neo4j import GraphDatabase
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _map_similarity_relation(relation_type: str | None) -> str | None:
@@ -34,6 +38,8 @@ def close_graph_driver() -> None:
 
 def find_disease_by_name(name: str) -> dict:
     """Fetch a Disease node by name (case-insensitive) with category metadata."""
+    from app.services.pipeline_tracer import get_tracer
+
     driver = _get_driver()
 
     query = """
@@ -44,23 +50,64 @@ def find_disease_by_name(name: str) -> dict:
     RETURN elementId(d) AS id,
            d.name AS name,
            dc.name AS category
-    LIMIT 1
     """
+
+    logger.info("┌─ KG QUERY: find_disease_by_name('%s')", name)
+    t0 = time.perf_counter()
 
     try:
         with driver.session() as session:
             result = session.run(query, name=name)
             row = result.single()
 
+        duration_ms = (time.perf_counter() - t0) * 1000
+
         if not row:
+            logger.info("└─ KG RESULT: disease NOT FOUND for '%s' (%.0fms)", name, duration_ms)
+            tracer = get_tracer()
+            if tracer:
+                tracer.log_kg_query(
+                    purpose=f"find_disease_by_name('{name}')",
+                    cypher=query.strip(),
+                    parameters={"name": name},
+                    row_count=0,
+                    result_sample=None,
+                    duration_ms=duration_ms,
+                )
             return {"error": "Disease not found", "name": name}
 
-        return {
+        result_dict = {
             "id": row.get("id"),
             "name": row.get("name"),
             "category": row.get("category"),
         }
+        logger.info("└─ KG RESULT: disease='%s' category='%s' (%.0fms)", result_dict["name"], result_dict["category"], duration_ms)
+
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"find_disease_by_name('{name}')",
+                cypher=query.strip(),
+                parameters={"name": name},
+                row_count=1,
+                result_sample=result_dict,
+                duration_ms=duration_ms,
+            )
+
+        return result_dict
     except Exception as exc:
+        duration_ms = (time.perf_counter() - t0) * 1000
+        logger.exception("KG QUERY FAILED: find_disease_by_name('%s') (%.0fms)", name, duration_ms)
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"find_disease_by_name('{name}')",
+                cypher=query.strip(),
+                parameters={"name": name},
+                row_count=0,
+                duration_ms=duration_ms,
+                error=str(exc),
+            )
         return {
             "error": "Failed to query disease",
             "details": str(exc),
@@ -112,6 +159,11 @@ def get_disease_subgraph(disease_name: str) -> dict:
     try:
         with driver.session() as session:
             rows = list(session.run(query, disease_name=disease_name, limit=1500))
+
+        logger.info(
+            "┌─ KG QUERY: get_disease_subgraph('%s') → %d rows",
+            disease_name, len(rows),
+        )
 
         ingredients: dict[str, dict[str, Any]] = {}
         compounds: dict[str, dict[str, Any]] = {}
@@ -185,7 +237,7 @@ def get_disease_subgraph(disease_name: str) -> dict:
                     }
                 )
 
-        return {
+        result = {
             "Disease": disease,
             "Ingredients": list(ingredients.values()),
             "ChemicalCompounds": list(compounds.values()),
@@ -193,6 +245,34 @@ def get_disease_subgraph(disease_name: str) -> dict:
             "Drugs": list(drugs.values()),
             "Relations": relations,
         }
+
+        logger.info(
+            "└─ KG SUBGRAPH: disease='%s' ingredients=%d compounds=%d drug_compounds=%d drugs=%d relations=%d",
+            disease_name,
+            len(result["Ingredients"]),
+            len(result["ChemicalCompounds"]),
+            len(result["DrugChemicalCompounds"]),
+            len(result["Drugs"]),
+            len(result["Relations"]),
+        )
+
+        from app.services.pipeline_tracer import get_tracer
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"get_disease_subgraph('{disease_name}')",
+                cypher=query.strip(),
+                parameters={"disease_name": disease_name, "limit": 1500},
+                row_count=len(rows),
+                result_sample={
+                    "ingredients": [i.get("name") for i in list(ingredients.values())[:5]],
+                    "compounds": [c.get("name") for c in list(compounds.values())[:5]],
+                    "drug_compounds": [dc.get("name") for dc in list(drug_compounds.values())[:5]],
+                    "drugs": [d.get("name") for d in list(drugs.values())[:5]],
+                },
+            )
+
+        return result
     except Exception as exc:
         return {
             "error": "Failed to query disease subgraph",
@@ -213,6 +293,8 @@ def get_hadith_for_disease(disease_name: str) -> list:
     - Hadith.name
     - Reference.reference via (Reference)-[:HAS_HADITH]->(Hadith)
     """
+    from app.services.pipeline_tracer import get_tracer
+
     driver = _get_driver()
 
     query = """
@@ -226,9 +308,14 @@ def get_hadith_for_disease(disease_name: str) -> list:
     LIMIT $limit
     """
 
+    logger.info("┌─ KG QUERY: get_hadith_for_disease('%s')", disease_name)
+    t0 = time.perf_counter()
+
     try:
         with driver.session() as session:
             rows = list(session.run(query, disease_name=disease_name, limit=100))
+
+        duration_ms = (time.perf_counter() - t0) * 1000
 
         hadith_items: list[dict[str, str]] = []
         for row in rows:
@@ -244,13 +331,29 @@ def get_hadith_for_disease(disease_name: str) -> list:
                 }
             )
 
+        logger.info("└─ KG RESULT: %d hadith references for '%s' (%.0fms)", len(hadith_items), disease_name, duration_ms)
+
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"get_hadith_for_disease('{disease_name}')",
+                cypher=query.strip(),
+                parameters={"disease_name": disease_name, "limit": 100},
+                row_count=len(hadith_items),
+                result_sample=hadith_items[:3],
+                duration_ms=duration_ms,
+            )
+
         return hadith_items
     except Exception:
+        logger.exception("KG QUERY FAILED: get_hadith_for_disease('%s')", disease_name)
         return []
 
 
 def get_ingredients_for_disease(disease_name: str) -> list[dict[str, str]]:
     """Return all ingredients linked to a disease via CURES as a clean list of id/name items."""
+    from app.services.pipeline_tracer import get_tracer
+
     driver = _get_driver()
 
     query = """
@@ -265,9 +368,14 @@ def get_ingredients_for_disease(disease_name: str) -> list[dict[str, str]]:
     LIMIT $limit
     """
 
+    logger.info("┌─ KG QUERY: get_ingredients_for_disease('%s')", disease_name)
+    t0 = time.perf_counter()
+
     try:
         with driver.session() as session:
             rows = list(session.run(query, disease_name=disease_name, limit=500))
+
+        duration_ms = (time.perf_counter() - t0) * 1000
 
         ingredients: list[dict[str, str]] = []
         for row in rows:
@@ -279,8 +387,22 @@ def get_ingredients_for_disease(disease_name: str) -> list[dict[str, str]]:
                 continue
             ingredients.append({"id": node_id.strip(), "name": name.strip()})
 
+        logger.info("└─ KG RESULT: %d ingredients for '%s' (%.0fms)", len(ingredients), disease_name, duration_ms)
+
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"get_ingredients_for_disease('{disease_name}')",
+                cypher=query.strip(),
+                parameters={"disease_name": disease_name, "limit": 500},
+                row_count=len(ingredients),
+                result_sample=[i["name"] for i in ingredients[:10]],
+                duration_ms=duration_ms,
+            )
+
         return ingredients
     except Exception:
+        logger.exception("KG QUERY FAILED: get_ingredients_for_disease('%s')", disease_name)
         return []
 
 
@@ -298,7 +420,6 @@ def get_ingredient_subgraph(ingredient_name: str) -> dict:
     MATCH (i:Ingredient)
     WHERE toLower(i.name) = toLower($ingredient_name)
     RETURN elementId(i) AS id, i.name AS name
-    LIMIT 1
     """
     
     try:
@@ -438,21 +559,42 @@ def get_drug_subgraph(drug_name: str) -> dict:
     Drug -[CONTAINS]-> DrugChemicalCompound <-[IS_*]- ChemicalCompound <-[CONTAINS]- Ingredient -[CURES]-> Disease
     Return structured subgraph with drug as the primary entity.
     """
+    from app.services.pipeline_tracer import get_tracer
+
     driver = _get_driver()
-    
-    # First, find the drug node
+    t0 = time.perf_counter()
+
     find_query = """
     MATCH (drug:Drug)
     WHERE toLower(drug.name) = toLower($drug_name)
+       OR toLower(drug.name) CONTAINS toLower($drug_name)
+       OR toLower($drug_name) CONTAINS toLower(drug.name)
     RETURN elementId(drug) AS id, drug.name AS name
+    ORDER BY CASE
+        WHEN toLower(drug.name) = toLower($drug_name) THEN 0
+        WHEN toLower(drug.name) CONTAINS toLower($drug_name) THEN 1
+        WHEN toLower($drug_name) CONTAINS toLower(drug.name) THEN 2
+        ELSE 3
+    END, size(drug.name) ASC
     LIMIT 1
     """
-    
+
     try:
         with driver.session() as session:
             drug_row = session.run(find_query, drug_name=drug_name).single()
-        
+
         if not drug_row:
+            duration_ms = (time.perf_counter() - t0) * 1000
+            tracer = get_tracer()
+            if tracer:
+                tracer.log_kg_query(
+                    purpose=f"get_drug_subgraph('{drug_name}')",
+                    cypher=(find_query.strip() + "\n" + "(drug not found; traversal query skipped)"),
+                    parameters={"drug_name": drug_name},
+                    row_count=0,
+                    result_sample=None,
+                    duration_ms=duration_ms,
+                )
             return {
                 "error": "Drug not found",
                 "Drug": {"id": None, "name": drug_name},
@@ -462,16 +604,15 @@ def get_drug_subgraph(drug_name: str) -> dict:
                 "Diseases": [],
                 "Relations": [],
             }
-        
+
         drug_info = {
             "id": drug_row.get("id"),
             "name": drug_row.get("name"),
         }
-        
-        # Traverse the drug-centered subgraph (reverse of disease→drug path)
+
         query = """
         MATCH (drug:Drug)
-        WHERE toLower(drug.name) = toLower($drug_name)
+        WHERE elementId(drug) = $drug_id
         OPTIONAL MATCH (drug)-[:CONTAINS]->(dcc:DrugChemicalCompound)
         OPTIONAL MATCH (dcc)<-[isrel:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO|IS_WEAK_MATCH_TO]-(cc:ChemicalCompound)
         OPTIONAL MATCH (cc)<-[:CONTAINS]-(i:Ingredient)
@@ -489,16 +630,16 @@ def get_drug_subgraph(drug_name: str) -> dict:
                type(isrel) AS is_relation_type
         LIMIT $limit
         """
-        
+
         with driver.session() as session:
-            rows = list(session.run(query, drug_name=drug_name, limit=300))
-        
+            rows = list(session.run(query, drug_id=drug_info["id"], limit=300))
+
         drug_compounds: dict[str, dict[str, Any]] = {}
         compounds: dict[str, dict[str, Any]] = {}
         ingredients: dict[str, dict[str, Any]] = {}
         diseases: dict[str, dict[str, Any]] = {}
         relations: list[dict[str, Any]] = []
-        
+
         for row in rows:
             dcc_id = row.get("dcc_id")
             match_type = _map_similarity_relation(row.get("is_relation_type"))
@@ -507,58 +648,57 @@ def get_drug_subgraph(drug_name: str) -> dict:
                 if match_type:
                     existing["relation_type"] = match_type
                 drug_compounds[dcc_id] = existing
-            
+
             cc_id = row.get("cc_id")
             if cc_id:
                 compounds[cc_id] = {
                     "id": cc_id,
                     "name": row.get("cc_name"),
                 }
-            
+
             ingredient_id = row.get("ingredient_id")
             if ingredient_id:
                 ingredients[ingredient_id] = {
                     "id": ingredient_id,
                     "name": row.get("ingredient_name"),
                 }
-            
+
             disease_id = row.get("disease_id")
             if disease_id:
                 diseases[disease_id] = {
                     "id": disease_id,
                     "name": row.get("disease_name"),
                 }
-            
-            # Build relations
+
             if drug_info["id"] and dcc_id:
                 relations.append({
                     "from": drug_info["id"],
                     "to": dcc_id,
                     "type": "CONTAINS",
                 })
-            
+
             if cc_id and dcc_id and match_type:
                 relations.append({
                     "from": cc_id,
                     "to": dcc_id,
                     "type": match_type,
                 })
-            
+
             if ingredient_id and cc_id:
                 relations.append({
                     "from": ingredient_id,
                     "to": cc_id,
                     "type": "CONTAINS",
                 })
-            
+
             if ingredient_id and disease_id:
                 relations.append({
                     "from": ingredient_id,
                     "to": disease_id,
                     "type": "CURES",
                 })
-        
-        return {
+
+        result_payload = {
             "Drug": drug_info,
             "DrugChemicalCompounds": list(drug_compounds.values()),
             "ChemicalCompounds": list(compounds.values()),
@@ -566,7 +706,38 @@ def get_drug_subgraph(drug_name: str) -> dict:
             "Diseases": list(diseases.values()),
             "Relations": relations,
         }
+
+        duration_ms = (time.perf_counter() - t0) * 1000
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"get_drug_subgraph('{drug_name}')",
+                cypher=query.strip(),
+                parameters={"drug_id": drug_info["id"], "limit": 300, "drug_name": drug_name},
+                row_count=len(rows),
+                result_sample={
+                    "drug": drug_info.get("name"),
+                    "ingredients": [i.get("name") for i in list(ingredients.values())[:5]],
+                    "compounds": [c.get("name") for c in list(compounds.values())[:5]],
+                    "drug_compounds": [dc.get("name") for dc in list(drug_compounds.values())[:5]],
+                    "diseases": [d.get("name") for d in list(diseases.values())[:5]],
+                },
+                duration_ms=duration_ms,
+            )
+
+        return result_payload
     except Exception as exc:
+        duration_ms = (time.perf_counter() - t0) * 1000
+        tracer = get_tracer()
+        if tracer:
+            tracer.log_kg_query(
+                purpose=f"get_drug_subgraph('{drug_name}')",
+                cypher=find_query.strip(),
+                parameters={"drug_name": drug_name},
+                row_count=0,
+                duration_ms=duration_ms,
+                error=str(exc),
+            )
         return {
             "error": "Failed to query drug subgraph",
             "details": str(exc),
