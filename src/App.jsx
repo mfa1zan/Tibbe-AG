@@ -18,6 +18,44 @@ const CHAT_STORAGE_KEY = 'kg-chat-messages-v1';
 
 const INITIAL_GREETING = createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?');
 
+function SidebarToggleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10 4.5V19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M7 9.5H17M7 13H13.5M6 5.5H18C19.1 5.5 20 6.4 20 7.5V14.5C20 15.6 19.1 16.5 18 16.5H11L7 19.5V16.5H6C4.9 16.5 4 15.6 4 14.5V7.5C4 6.4 4.9 5.5 6 5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M10 3.8H14L14.6 6C15.1 6.2 15.6 6.4 16 6.7L18.2 5.7L20.3 7.8L19.3 10C19.6 10.4 19.8 10.9 20 11.4L22.2 12V16L20 16.6C19.8 17.1 19.6 17.6 19.3 18L20.3 20.2L18.2 22.3L16 21.3C15.6 21.6 15.1 21.8 14.6 22L14 24.2H10L9.4 22C8.9 21.8 8.4 21.6 8 21.3L5.8 22.3L3.7 20.2L4.7 18C4.4 17.6 4.2 17.1 4 16.6L1.8 16V12L4 11.4C4.2 10.9 4.4 10.4 4.7 10L3.7 7.8L5.8 5.7L8 6.7C8.4 6.4 8.9 6.2 9.4 6L10 3.8Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="14" r="2.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
 function sanitizeStoredMessages(rawValue) {
   if (!Array.isArray(rawValue)) return null;
 
@@ -229,7 +267,7 @@ function AppShell() {
             title={isSidebarExpanded ? 'Collapse sidebar' : 'Open sidebar'}
             onClick={() => setIsSidebarExpanded((current) => !current)}
           >
-            {isSidebarExpanded ? '◧' : '◨'}
+            <SidebarToggleIcon />
           </button>
 
           {isSidebarExpanded ? (
@@ -248,7 +286,7 @@ function AppShell() {
             className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
             title="Chat"
           >
-            <span className="app-nav-icon" aria-hidden="true">💬</span>
+            <span className="app-nav-icon" aria-hidden="true"><ChatIcon /></span>
             {isSidebarExpanded ? <span className="app-nav-label">Chat</span> : null}
           </NavLink>
           <NavLink
@@ -256,7 +294,7 @@ function AppShell() {
             className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
             title="Settings"
           >
-            <span className="app-nav-icon" aria-hidden="true">⚙️</span>
+            <span className="app-nav-icon" aria-hidden="true"><SettingsIcon /></span>
             {isSidebarExpanded ? <span className="app-nav-label">Settings</span> : null}
           </NavLink>
         </nav>
