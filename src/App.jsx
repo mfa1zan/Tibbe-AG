@@ -5,7 +5,6 @@ import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi } from 
 import './App.css';
 
 const ChatPage = lazy(() => import('./pages/ChatPage'));
-const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 const createMessage = (role, content, metadata = {}) => ({
@@ -68,6 +67,7 @@ function AppShell() {
   const [hasStreamedToken, setHasStreamedToken] = useState(false);
   const [error, setError] = useState('');
   const [inputValue, setInputValue] = useState('');
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const messagesRef = useRef(messages);
   const requestAbortRef = useRef(null);
 
@@ -217,29 +217,47 @@ function AppShell() {
 
   return (
     <main className="app-shell">
-      <aside className="app-sidebar" aria-label="Primary navigation">
-        <div className="app-sidebar-brand">
-          <h1 className="app-title">PRO-MedGraph</h1>
-          <p className="app-sidebar-subtitle">Biomedical assistant</p>
+      <aside
+        className={`app-sidebar ${isSidebarExpanded ? 'app-sidebar-expanded' : 'app-sidebar-collapsed'}`}
+        aria-label="Primary navigation"
+      >
+        <div className="app-sidebar-top">
+          <button
+            type="button"
+            className="app-sidebar-logo-button"
+            aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Open sidebar'}
+            title={isSidebarExpanded ? 'Collapse sidebar' : 'Open sidebar'}
+            onClick={() => setIsSidebarExpanded((current) => !current)}
+          >
+            {isSidebarExpanded ? '◧' : '◨'}
+          </button>
+
+          {isSidebarExpanded ? (
+            <>
+              <div className="app-sidebar-brand-text">
+                <h1 className="app-title">PRO-MedGraph</h1>
+                <p className="app-sidebar-subtitle">Biomedical assistant</p>
+              </div>
+            </>
+          ) : null}
         </div>
+
         <nav className="app-nav" aria-label="Primary">
           <NavLink
             to="/chat"
             className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+            title="Chat"
           >
-            Chat
-          </NavLink>
-          <NavLink
-            to="/history"
-            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-          >
-            History
+            <span className="app-nav-icon" aria-hidden="true">💬</span>
+            {isSidebarExpanded ? <span className="app-nav-label">Chat</span> : null}
           </NavLink>
           <NavLink
             to="/settings"
             className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+            title="Settings"
           >
-            Settings
+            <span className="app-nav-icon" aria-hidden="true">⚙️</span>
+            {isSidebarExpanded ? <span className="app-nav-label">Settings</span> : null}
           </NavLink>
         </nav>
       </aside>
@@ -267,15 +285,14 @@ function AppShell() {
               }
             />
             <Route
-              path="/history"
+              path="/settings"
               element={
-                <HistoryPage
+                <SettingsPage
                   messages={messages}
                   onClearConversation={handleClearConversation}
                 />
               }
             />
-            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/chat" replace />} />
           </Routes>
         </Suspense>
