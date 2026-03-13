@@ -31,5 +31,14 @@
 }
 
 .chat-jump-to-bottom {
-  @apply absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-slate-900 text-xl text-white shadow-lg transition hover:bg-slate-800 dark:border-slate-700;
+  @apply absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white shadow-lg transition;
+  background-color: var(--primary-color);
+}
+
+.chat-jump-to-bottom:hover {
+  background-color: color-mix(in srgb, var(--primary-color) 86%, #000000);
+}
+
+.chat-jump-to-bottom svg {
+  display: block;
 }
