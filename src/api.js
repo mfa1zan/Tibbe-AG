@@ -122,7 +122,7 @@ export async function sendMessageToChatApi(message, options = {}) {
   const { history = [], signal } = options;
 
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
+  const timeoutId = setTimeout(() => timeoutController.abort(), 120_000);
   const combinedSignal = signal ?? timeoutController.signal;
 
   let response;

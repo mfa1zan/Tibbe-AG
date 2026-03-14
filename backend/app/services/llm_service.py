@@ -24,6 +24,7 @@ class LLMService:
         temperature: float = 0.2,
         model: str | None = None,
         _trace_purpose: str = "",
+        **kwargs,
     ) -> str:
         from app.services.pipeline_tracer import get_tracer
 
