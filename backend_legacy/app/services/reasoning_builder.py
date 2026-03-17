@@ -329,7 +329,7 @@ def _build_biochemical_mappings(
     drugs = _index_by_id(_ensure_list(nodes_by_label.get("Drug")))
 
     ingredient_to_compounds: dict[str, set[str]] = {}
-    compound_to_drug_compounds: dict[str, list[tuple[str, str, dict[str, float]]]] = {}
+    compound_to_drug_compounds: dict[str, list[tuple[str, str, str | None, dict[str, float]]]] = {}
     drug_compound_to_drugs: dict[str, set[str]] = {}
 
     # Reasoning layer is schema-aligned and ontology-aware, but no longer brittle.
@@ -369,7 +369,7 @@ def _build_biochemical_mappings(
                 if isinstance(value, (int, float)):
                     numeric_evidence[key] = float(value)
             compound_to_drug_compounds.setdefault(source, []).append(
-                (target, rel_type, numeric_evidence)
+                (target, rel_type, _safe_str(relation.get("is_relation_type")) or None, numeric_evidence)
             )
             continue
 
@@ -388,7 +388,7 @@ def _build_biochemical_mappings(
             if not similarity_edges:
                 continue
 
-            for dcc_id, similarity_rel_type, numeric_evidence in similarity_edges:
+            for dcc_id, similarity_rel_type, raw_similarity_rel_type, numeric_evidence in similarity_edges:
                 linked_drugs = drug_compound_to_drugs.get(dcc_id) or {None}
                 for drug_id in linked_drugs:
                     ingredient_obj = _format_named_node(ingredients.get(ingredient_id))
@@ -407,6 +407,7 @@ def _build_biochemical_mappings(
                             "drug": drug_obj,
                             "mapping_strength": mapping_strength,
                             "similarity_relation_type": similarity_rel_type,
+                            "is_relation_type": raw_similarity_rel_type,
                             "similarity_relation_present": True,
                             "numeric_evidence": numeric_evidence,
                         }

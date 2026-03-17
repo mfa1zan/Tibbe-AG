@@ -1,0 +1,392 @@
+{
+  "timestamp": "2026-03-13T17:45:18.884197+00:00",
+  "query": "Which ingredient should I use instead of Dihydroergotamine Mesylate drug?",
+  "entities": {
+    "disease": null,
+    "ingredient": null,
+    "drug": "Dihydroergotamine Mesylate"
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Drug"
+      },
+      {
+        "step": 2,
+        "action": "trace back to",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 3,
+        "action": "trace back to",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "find alternatives",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace forward to",
+        "target": "Ingredient"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Drug",
+      "DrugChemicalCompound",
+      "ChemicalCompound",
+      "Ingredient"
+    ]
+  },
+  "paths_used": 4,
+  "causal_scores": {
+    "total_paths": 4,
+    "avg_causal_score": 0.2505,
+    "max_causal_score": 0.2505,
+    "min_causal_score": 0.2505,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 4,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 1.0
+  },
+  "causal_paths_count": 4,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Fig",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dihydroergotamine Mesylate Drops",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Pomegranate",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dihydroergotamine Mesylate Drops",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Dried Grapes",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dihydroergotamine Mesylate Drops",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": false,
+    "framing_score": 0.3,
+    "scientific_backing": true,
+    "scientific_backing_score": 0.4,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.325,
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present; Answer framing could include more professional caveats"
+  },
+  "a0_answer_length": 129,
+  "af_answer_length": 129,
+  "final_answer": "I’m temporarily rate-limited by the language model provider, so I can’t complete this answer right now. Please try again shortly.",
+  "confidence_score": 0.32,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive.",
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": null,
+      "ingredient": null,
+      "drug": "Dihydroergotamine Mesylate"
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Drug"
+      },
+      {
+        "step": 2,
+        "action": "trace back to",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 3,
+        "action": "trace back to",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "find alternatives",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace forward to",
+        "target": "Ingredient"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Water for injection",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Water for injection)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Sodium hydroxide",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Sodium hydroxide)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Hydrochloric acid",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Hydrochloric acid)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Nitrogen gas",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Nitrogen gas)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Water for injection",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Water for injection)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Sodium hydroxide",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Sodium hydroxide)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Hydrochloric acid",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Hydrochloric acid)"
+        ]
+      },
+      {
+        "disease": "Piles (Basoor)",
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Nitrogen gas",
+        "drug": null,
+        "mapping_strength_label": "WEAK",
+        "mapping_strength": 0.35,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.3,
+        "causal_score": 0.2505,
+        "hop_count": 1,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Piles (Basoor))",
+          "DrugCompound(Nitrogen gas)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 4,
+      "avg_causal_score": 0.2505,
+      "max_causal_score": 0.2505,
+      "min_causal_score": 0.2505,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 4,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 1.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 3
+    },
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present; Answer framing could include more professional caveats",
+    "faith_alignment_score": 0.325,
+    "confidence_breakdown": {
+      "mapping_strength": 0.35,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.325,
+      "causal_avg": 0.2505,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

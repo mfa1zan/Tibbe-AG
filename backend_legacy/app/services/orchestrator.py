@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
@@ -265,7 +266,11 @@ class GraphRAGOrchestrator:
         disease = entities.get("disease")
         ingredient = entities.get("ingredient")
         drug = entities.get("drug")
-        traversal_intent = self._resolve_traversal_intent(followup_intent, entities)
+        traversal_intent = self._resolve_traversal_intent(
+            followup_intent,
+            entities,
+            clean_query,
+        )
         logger.info(
             "STAGE 2: Entities → disease='%s' ingredient='%s' drug='%s' | traversal_intent='%s'",
             disease, ingredient, drug, traversal_intent,
@@ -283,14 +288,26 @@ class GraphRAGOrchestrator:
         async def _graph_retrieval_async():
             """Run synchronous graph retrieval in a thread to enable parallelism."""
             loop = asyncio.get_running_loop()
+            active_tracer = get_tracer()
+
+            def _retrieve_with_tracer():
+                if active_tracer:
+                    set_tracer(active_tracer)
+                try:
+                    return self._retrieve_graph_by_intent(
+                        disease,
+                        ingredient,
+                        drug,
+                        traversal_intent,
+                        traversal_intent in {"cure", "full"} or followup_intent == "hadith",
+                    )
+                finally:
+                    if active_tracer:
+                        clear_tracer()
+
             return await loop.run_in_executor(
                 None,
-                self._retrieve_graph_by_intent,
-                disease,
-                ingredient,
-                drug,
-                traversal_intent,
-                traversal_intent == "cure" or followup_intent == "hadith",
+                _retrieve_with_tracer,
             )
 
         rationale_task = generate_rationale_plan(
@@ -328,10 +345,16 @@ class GraphRAGOrchestrator:
         pipeline_stages.append("graph_retrieval")
 
         # Apply rationale-based filtering
-        subgraph = filter_subgraph_by_plan(
-            subgraph,
-            rationale_result.get("relevant_node_types", []),
-        )
+        if traversal_intent in {"drug_substitute", "ingredient_substitute"}:
+            logger.info(
+                "STAGE 5: Skipping rationale filtering for %s to preserve substitution-path evidence",
+                traversal_intent,
+            )
+        else:
+            subgraph = filter_subgraph_by_plan(
+                subgraph,
+                rationale_result.get("relevant_node_types", []),
+            )
         tracer.end_step({"subgraph_keys": list(subgraph.keys()) if isinstance(subgraph, dict) else []})
 
         # ── Stage 6: Multi-Hop Discovery (if needed) ──────────────────────
@@ -342,7 +365,12 @@ class GraphRAGOrchestrator:
         })
         reasoning = self._build_reasoning(subgraph, primary_entity_type, primary_entity_name)
 
-        if multi_hop_discovery.should_activate_discovery(reasoning) and disease:
+        if (
+            primary_entity_type == "Disease"
+            and traversal_intent != "drug_substitute"
+            and multi_hop_discovery.should_activate_discovery(reasoning)
+            and disease
+        ):
             pipeline_stages.append("multi_hop_discovery")
             logger.info("STAGE 6: Multi-hop discovery ACTIVATED for '%s'", disease)
             multi_hop_data = multi_hop_discovery.discover_indirect_compound_links(disease)
@@ -352,6 +380,140 @@ class GraphRAGOrchestrator:
 
         # ── Stage 7: Reasoning Builder (already called above) ──────────────
         pipeline_stages.append("reasoning_builder")
+        if primary_entity_type == "Drug" and traversal_intent in {"drug", "drug_substitute", "cure"}:
+            mappings = reasoning.get("BiochemicalMappings", [])
+            strength_rank = {"IDENTICAL": 0, "LIKELY": 1, "WEAK": 2}
+            valid_drug_paths = []
+
+            for mapping in mappings if isinstance(mappings, list) else []:
+                if not isinstance(mapping, dict):
+                    continue
+
+                ingredient_obj = mapping.get("ingredient") if isinstance(mapping.get("ingredient"), dict) else {}
+                compound_obj = mapping.get("chemical_compound") if isinstance(mapping.get("chemical_compound"), dict) else {}
+                drug_compound_obj = (
+                    mapping.get("drug_chemical_compound")
+                    if isinstance(mapping.get("drug_chemical_compound"), dict)
+                    else {}
+                )
+                mapping_strength = (mapping.get("mapping_strength") or "").upper()
+                has_similarity = bool(mapping.get("similarity_relation_present"))
+
+                if not (ingredient_obj.get("id") and compound_obj.get("id") and has_similarity):
+                    continue
+
+                if mapping_strength in {"LIKELY", "WEAK"} and not self._compound_names_equivalent(
+                    compound_obj.get("name"),
+                    drug_compound_obj.get("name"),
+                ):
+                    continue
+
+                if mapping_strength not in strength_rank:
+                    mapping["mapping_strength"] = "WEAK"
+
+                valid_drug_paths.append(mapping)
+
+            valid_drug_paths.sort(
+                key=lambda item: (
+                    strength_rank.get((item.get("mapping_strength") or "WEAK").upper(), 9),
+                    ((item.get("ingredient") or {}).get("name") or "").lower(),
+                )
+            )
+
+            mapped_ingredient_ids = {
+                (item.get("ingredient") or {}).get("id")
+                for item in valid_drug_paths
+                if isinstance(item.get("ingredient"), dict)
+            }
+            mapped_compound_ids = {
+                (item.get("chemical_compound") or {}).get("id")
+                for item in valid_drug_paths
+                if isinstance(item.get("chemical_compound"), dict)
+            }
+            mapped_dcc_ids = {
+                (item.get("drug_chemical_compound") or {}).get("id")
+                for item in valid_drug_paths
+                if isinstance(item.get("drug_chemical_compound"), dict)
+            }
+
+            reasoning["Ingredients"] = [
+                i for i in reasoning.get("Ingredients", [])
+                if isinstance(i, dict) and i.get("id") in mapped_ingredient_ids
+            ]
+            reasoning["ChemicalCompounds"] = [
+                c for c in reasoning.get("ChemicalCompounds", [])
+                if isinstance(c, dict) and c.get("id") in mapped_compound_ids
+            ]
+            reasoning["DrugChemicalCompounds"] = [
+                dcc for dcc in reasoning.get("DrugChemicalCompounds", [])
+                if isinstance(dcc, dict) and dcc.get("id") in mapped_dcc_ids
+            ]
+
+            reasoning["BiochemicalMappings"] = valid_drug_paths
+            reasoning.setdefault("meta", {})
+            reasoning["meta"]["drug_path_count"] = len(valid_drug_paths)
+            reasoning["meta"]["no_drug_path_found"] = (
+                len(valid_drug_paths) == 0
+                and len(reasoning.get("ChemicalCompounds", [])) == 0
+                and len(reasoning.get("Ingredients", [])) == 0
+            )
+
+        if primary_entity_type == "Ingredient" and traversal_intent == "ingredient_substitute":
+            mappings = reasoning.get("BiochemicalMappings", [])
+            strength_rank = {"IDENTICAL": 0, "LIKELY": 1, "WEAK": 2}
+            valid_paths = []
+
+            for mapping in mappings if isinstance(mappings, list) else []:
+                if not isinstance(mapping, dict):
+                    continue
+                has_similarity = bool(mapping.get("similarity_relation_present"))
+                ingredient_obj = mapping.get("ingredient") if isinstance(mapping.get("ingredient"), dict) else {}
+                drug_obj = mapping.get("drug") if isinstance(mapping.get("drug"), dict) else {}
+                compound_obj = mapping.get("chemical_compound") if isinstance(mapping.get("chemical_compound"), dict) else {}
+                drug_compound_obj = (
+                    mapping.get("drug_chemical_compound")
+                    if isinstance(mapping.get("drug_chemical_compound"), dict)
+                    else {}
+                )
+                mapping_strength = (mapping.get("mapping_strength") or "").upper()
+
+                if not (has_similarity and ingredient_obj.get("id") and drug_obj.get("id")):
+                    continue
+
+                if mapping_strength == "IDENTICAL":
+                    valid_paths.append(mapping)
+                    continue
+
+                if mapping_strength not in strength_rank:
+                    mapping["mapping_strength"] = "WEAK"
+
+                if self._compound_pair_is_plausible(
+                    compound_obj.get("name"),
+                    drug_compound_obj.get("name"),
+                ):
+                    valid_paths.append(mapping)
+
+            valid_paths.sort(
+                key=lambda item: (
+                    strength_rank.get((item.get("mapping_strength") or "WEAK").upper(), 9),
+                    ((item.get("drug") or {}).get("name") or "").lower(),
+                )
+            )
+
+            mapped_drug_ids = {
+                (item.get("drug") or {}).get("id")
+                for item in valid_paths
+                if isinstance(item.get("drug"), dict)
+            }
+            reasoning["Drugs"] = [
+                d for d in reasoning.get("Drugs", [])
+                if isinstance(d, dict) and d.get("id") in mapped_drug_ids
+            ]
+            reasoning["BiochemicalMappings"] = valid_paths
+            reasoning.setdefault("meta", {})
+            reasoning["meta"]["ingredient_substitute_path_count"] = len(valid_paths)
+            reasoning["meta"]["no_drug_path_found"] = len(valid_paths) == 0
+
         graph_paths_used = len(reasoning.get("BiochemicalMappings", []))
         logger.info(
             "STAGE 7: Reasoning built → graph_paths_used=%s ingredients=%d compounds=%d drugs=%d hadith=%d",
@@ -369,6 +531,7 @@ class GraphRAGOrchestrator:
             "drugs_count": len(reasoning.get("Drugs", [])),
             "hadith_count": len(reasoning.get("HadithReferences", [])),
             "biochemical_mappings_count": graph_paths_used,
+            "no_drug_path_found": reasoning.get("meta", {}).get("no_drug_path_found"),
         })
         tracer.log_data("reasoning_summary", {
             "Disease": reasoning.get("Disease"),
@@ -757,10 +920,86 @@ class GraphRAGOrchestrator:
                     ids.add(node_id.strip())
         return ids
 
-    def _resolve_traversal_intent(self, followup_intent: str, entities: dict[str, Any]) -> str:
+    @staticmethod
+    def _is_drug_substitution_query(query: str) -> bool:
+        text = (query or "").strip().lower()
+        if not text:
+            return False
+        substitution_patterns = [
+            r"\binstead of\b",
+            r"\bdrugs?\s+instead\s+of\b",
+            r"\bmedicine\s+instead\s+of\b",
+            r"\bdrugs?\s+to\s+replace\b",
+            r"\balternative\s+drugs?\s+for\b",
+            r"\bwhat\s+drug\s+can\s+i\s+use\s+instead\s+of\b",
+            r"\bdrugs?\s+which\s+i\s+should\s+use\s+instead\s+of\b",
+            r"\bsubstitut(e|ion|ing)?\b",
+            r"\balternative(s)?\b",
+            r"\breplace(ment|)\b",
+            r"\bequivalent(s)?\b",
+            r"\bswap(ping|)\b",
+        ]
+        return any(re.search(pattern, text) for pattern in substitution_patterns)
+
+    @staticmethod
+    def _normalize_compound_name(name: str | None) -> str:
+        text = (name or "").strip().lower()
+        if not text:
+            return ""
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        text = re.sub(r"\b(acid|hydrate|solution|drop|drops|tablet|tablets|capsule|capsules)\b", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    @classmethod
+    def _compound_names_equivalent(cls, left: str | None, right: str | None) -> bool:
+        left_norm = cls._normalize_compound_name(left)
+        right_norm = cls._normalize_compound_name(right)
+        if not left_norm or not right_norm:
+            return False
+        return left_norm == right_norm
+
+    @classmethod
+    def _compound_pair_is_plausible(cls, left: str | None, right: str | None) -> bool:
+        left_norm = cls._normalize_compound_name(left)
+        right_norm = cls._normalize_compound_name(right)
+        if not left_norm or not right_norm:
+            return False
+
+        if left_norm == right_norm:
+            return True
+
+        left_tokens = {token for token in left_norm.split(" ") if len(token) > 2}
+        right_tokens = {token for token in right_norm.split(" ") if len(token) > 2}
+        if not left_tokens or not right_tokens:
+            return False
+
+        overlap = left_tokens & right_tokens
+        if not overlap:
+            return False
+
+        overlap_ratio = len(overlap) / max(1, min(len(left_tokens), len(right_tokens)))
+        return overlap_ratio >= 0.6
+
+    def _resolve_traversal_intent(
+        self,
+        followup_intent: str,
+        entities: dict[str, Any],
+        query: str = "",
+    ) -> str:
         label = (followup_intent or "").strip().lower()
         drug_entity = entities.get("drug") if isinstance(entities, dict) else None
+        ingredient_entity = entities.get("ingredient") if isinstance(entities, dict) else None
 
+        if isinstance(drug_entity, str) and drug_entity.strip() and self._is_drug_substitution_query(query):
+            return "drug_substitute"
+        if isinstance(ingredient_entity, str) and ingredient_entity.strip() and self._is_drug_substitution_query(query):
+            return "ingredient_substitute"
+
+        if label == "drug_substitute":
+            return "drug_substitute"
+        if label == "ingredient_substitute":
+            return "ingredient_substitute"
         if label in {"cure", "hadith", "ingredient"}:
             return "cure"
         if label in {"reasoning", "technical"}:
@@ -825,7 +1064,7 @@ class GraphRAGOrchestrator:
             pruned.setdefault("Books", [])
             pruned["HadithReferences"] = []
 
-        elif traversal_intent == "drug":
+        elif traversal_intent in {"drug", "drug_substitute", "ingredient_substitute"}:
             allowed_rel_types |= ingredient_compound_rels
             allowed_rel_types |= compound_dcc_rels
             allowed_rel_types |= drug_dcc_rels
@@ -894,6 +1133,32 @@ class GraphRAGOrchestrator:
         """Stage 4+5: Intent-based routing + KG retrieval."""
         try:
             # Schema-driven KG retrieval enforced.
+            if drug and traversal_intent in {"cure", "drug_substitute"}:
+                if not self._schema_has_label("Drug"):
+                    return (
+                        {"error": "Drug label not available in schema", "Relations": [], "HadithReferences": []},
+                        "Drug",
+                        drug,
+                    )
+                logger.info("Intent routing: DRUG-SUBSTITUTE query for '%s'", drug)
+                subgraph = self._drug_subgraph_fetcher(drug) or {}
+                subgraph.setdefault("HadithReferences", [])
+                subgraph = self._prune_subgraph_by_traversal_intent(subgraph, "drug_substitute", include_hadith=False)
+                return subgraph, "Drug", drug
+
+            if ingredient and traversal_intent == "ingredient_substitute":
+                if not self._schema_has_label("Ingredient"):
+                    return (
+                        {"error": "Ingredient label not available in schema", "Relations": [], "HadithReferences": []},
+                        "Ingredient",
+                        ingredient,
+                    )
+                logger.info("Intent routing: INGREDIENT-SUBSTITUTE query for '%s'", ingredient)
+                subgraph = self._ingredient_subgraph_fetcher(ingredient) or {}
+                subgraph.setdefault("HadithReferences", [])
+                subgraph = self._prune_subgraph_by_traversal_intent(subgraph, "ingredient_substitute", include_hadith=False)
+                return subgraph, "Ingredient", ingredient
+
             if disease:
                 if not self._schema_has_label("Disease"):
                     return (
@@ -1022,7 +1287,27 @@ class GraphRAGOrchestrator:
 
         traversal_instruction = self._get_traversal_intent_prompt_instruction(traversal_intent)
 
-        if primary_entity_type == "Disease":
+        if traversal_intent == "drug_substitute":
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical assistant. Use ONLY the structured graph reasoning data provided.\n"
+                "The user is asking for natural ingredient alternatives to a drug based on shared chemical compounds.\n"
+                "Reason through: Drug → DrugChemicalCompound → ChemicalCompound (via IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO) → Ingredient.\n"
+                "Present only ingredients found through this chemical path. State the relation type clearly (identical compound, likely equivalent, weak match).\n"
+                "Do NOT mention diseases, hadiths, or prophetic medicine unless explicitly present in the graph data.\n"
+                "Do NOT hallucinate. If no paths exist in the graph data, say so clearly.\n"
+                "End with a single medical safety disclaimer."
+            )
+        elif traversal_intent == "ingredient_substitute":
+            system_prompt = (
+                "You are PRO-MedGraph, a biomedical assistant. Use ONLY the structured graph reasoning data provided.\n"
+                "The user is asking what drugs share chemical compounds with a given natural ingredient.\n"
+                "Reason through: Ingredient → ChemicalCompound → DrugChemicalCompound (via IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO) → Drug.\n"
+                "Present only drugs found through this chemical path. State the relation type clearly.\n"
+                "Do NOT mention hadiths or prophetic medicine unless explicitly present in the graph data.\n"
+                "Do NOT hallucinate. If no paths exist in the graph data, say so clearly.\n"
+                "End with a single medical safety disclaimer."
+            )
+        elif primary_entity_type == "Disease":
             include_technical_details = followup_intent == "technical"
             system_prompt = (
                 "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
@@ -1143,24 +1428,20 @@ class GraphRAGOrchestrator:
         traversal_instruction = self._get_traversal_intent_prompt_instruction(traversal_intent)
         system_prompt = (
             "You are PRO-MedGraph Validator (Af).\n"
-            "Your ONLY job is to produce a polished, user-facing answer.\n\n"
-            "RULES:\n"
-            "1. Validate facts against the provided graph reasoning — remove anything unsupported.\n"
-            "2. Add uncertainty language for WEAK links (e.g., 'tentatively', 'may').\n"
-            "3. Add a concise medical safety disclaimer recommending a healthcare professional.\n"
-            "4. Ensure respectful, non-exclusivist Hadith framing.\n"
-            "5. Do NOT add unsupported claims or miracle/guarantee/divine-cure language.\n\n"
+            "Your ONLY job is to validate and polish the draft answer (A0) into a final user-facing response.\n\n"
+            "VALIDATION RULES:\n"
+            "1. Check every claim in A0 against the provided Structured Graph Reasoning JSON — remove anything not supported by actual graph data.\n"
+            "2. If graph_paths_used = 0 or biochemical_mappings_count = 0, explicitly state that no strong evidence was found rather than presenting weak mappings as recommendations.\n"
+            "3. Add uncertainty language proportional to mapping strength: IDENTICAL → confident, LIKELY → probable, WEAK → tentative/may.\n"
+            "4. Never add claims, ingredients, hadiths, or diseases not present in the graph data.\n"
+            "5. Do NOT apply prophetic/hadith framing unless hadith_count > 0 in the graph data.\n"
+            "6. Do NOT mention internal systems: no 'knowledge graph', 'graph retrieval', 'mapping strength scores', 'KG', etc.\n"
+            "7. Add a single concise medical safety disclaimer at the end — do not repeat it twice.\n"
+            "8. If the query is about drug substitution, frame the answer in biomedical terms (chemical equivalence), not faith/disease terms.\n\n"
             "FORMAT:\n"
-            "- Strip ALL step numbers, headings ('Step 1:', '## Step 2:', etc.), and chain-of-thought scaffolding.\n"
-            "- Output a clean, conversational, well-structured answer suitable for a patient or end user.\n"
-            "- Use bullet points or numbered lists only for ingredient/drug listings, not for reasoning steps.\n"
-            "- Do NOT mention internal systems such as 'knowledge graph', 'graph retrieval', or similar wording "
-            "unless the user explicitly asks for method/source details.\n"
-            "- Unless the user explicitly asks for technical details, remove chemical compounds, mapping labels, "
-            "and drug-equivalent lists from the final answer.\n"
-            "- Respect traversal-intent boundaries strictly; do not add entities/edges outside allowed path scope.\n"
-            f"- Traversal-intent constraints: {traversal_instruction}\n"
-            "- Return ONLY the final answer text — no meta-commentary."
+            "- Clean conversational prose, no headings, no step numbers.\n"
+            "- Bullet list only for listing ingredients/drugs.\n"
+            "- Return ONLY the final answer text."
         )
 
         user_prompt = (
@@ -1232,6 +1513,13 @@ class GraphRAGOrchestrator:
         If the query already looks self-contained the LLM returns it unchanged.
         Only the last 6 exchanges are considered to limit token use.
         """
+        ambiguous_reference_pattern = re.compile(
+            r"\b(it|that|this|the one|they|he|she|the hadith)\b",
+            flags=re.IGNORECASE,
+        )
+        if not ambiguous_reference_pattern.search(query or ""):
+            return query
+
         recent = history[-6:]
         convo_lines = "\n".join(
             f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')[:300]}"
@@ -1242,7 +1530,7 @@ class GraphRAGOrchestrator:
             "You are a query rewriter. Given a conversation history and the "
             "latest user message, rewrite the user message so it is fully "
             "self-contained (resolve pronouns, 'it', 'that', 'the hadith you "
-            "mentioned', etc.). Keep the rewrite short — one sentence.\n"
+            "mentioned', etc.). \n"
             "If the message is already self-contained, return it unchanged.\n"
             "Output ONLY the rewritten query, nothing else."
         )
@@ -1320,6 +1608,20 @@ class GraphRAGOrchestrator:
     @staticmethod
     def _get_traversal_intent_prompt_instruction(traversal_intent: str) -> str:
         intent = (traversal_intent or "full").strip().lower()
+        if intent == "drug_substitute":
+            return (
+                "Allowed scope only: Drug → DrugChemicalCompound → ChemicalCompound → Ingredient (+Disease only when present in graph evidence). "
+                "Prioritize ingredient alternatives linked by explicit similarity edges "
+                "IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO. "
+                "Do not introduce prophetic framing unless explicitly present in data."
+            )
+        if intent == "ingredient_substitute":
+            return (
+                "Allowed scope only: Ingredient → ChemicalCompound → DrugChemicalCompound → Drug (+Book if present). "
+                "Prioritize drug alternatives linked by explicit similarity edges "
+                "IS_IDENTICAL_TO / IS_LIKELY_EQUIVALENT_TO / IS_WEAK_MATCH_TO. "
+                "Do not introduce prophetic framing unless explicitly present in data."
+            )
         if intent == "cure":
             return (
                 "Allowed scope only: Disease → Ingredient → Hadith → Reference. "

@@ -1,0 +1,187 @@
+{
+  "timestamp": "2026-03-03T18:26:54.784725+00:00",
+  "query": "Which hadith mentions the cure for Fever?",
+  "entities": {
+    "disease": "Fever",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find mentions",
+        "target": "Hadith"
+      },
+      {
+        "step": 2,
+        "action": "filter by disease",
+        "target": "Hadith"
+      },
+      {
+        "step": 3,
+        "action": "get associated ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "get associated chemical compounds",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "get associated drugs",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Hadith",
+      "Ingredient",
+      "ChemicalCompound",
+      "Drug"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.57,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 558,
+  "af_answer_length": 516,
+  "final_answer": "Fever can be cured with natural ingredients, one of which is Honey, as mentioned in a hadith where the Prophet said, \"Fever is from the heat of the (Hell) Fire, so cool it with water.\" Additionally, another hadith mentions cooling fever with Zamzam water. The hadith evidence for curing Fever comes from Bukhari: 3261 and 3263, where it is stated that the Prophet advised to cool fever with water, and another narration mentions using Zamzam water. Please consult a healthcare professional before using any remedies.",
+  "confidence_score": 0.28,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "Fever",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find mentions",
+        "target": "Hadith"
+      },
+      {
+        "step": 2,
+        "action": "filter by disease",
+        "target": "Hadith"
+      },
+      {
+        "step": 3,
+        "action": "get associated ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "get associated chemical compounds",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "get associated drugs",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.57,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.57,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": true,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

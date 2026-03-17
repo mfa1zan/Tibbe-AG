@@ -1,0 +1,690 @@
+{
+  "timestamp": "2026-02-28T19:13:40.250230+00:00",
+  "query": "how can i cure fever , tell me the food items to use",
+  "entities": {
+    "disease": "fever",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredients_for_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "get_food_items_from_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "rank_food_items_by_efficacy",
+        "target": "Ingredient"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Ingredient"
+    ]
+  },
+  "paths_used": 281,
+  "causal_scores": {
+    "total_paths": 281,
+    "avg_causal_score": 0.5754,
+    "max_causal_score": 1.0,
+    "min_causal_score": 0.4083,
+    "strong_paths": 28,
+    "moderate_paths": 4,
+    "weak_paths": 249,
+    "avg_mechanism_score": 0.5516,
+    "avg_path_depth": 4.0
+  },
+  "causal_paths_count": 281,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Eraxis",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Iveegam EN",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Coagulation Factor IX (Recombinant) for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Reteplase Recombinant for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Immune Globulin (Human) for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Varicella Virus Vaccine Live",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Cytomegalovirus Immune Globulin IV (Human)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Basiliximab for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Daunorubicin Citrate Liposome Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Infliximab Recombinant for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 1.0,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.895,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present"
+  },
+  "a0_answer_length": 3106,
+  "af_answer_length": 1826,
+  "final_answer": "To address your query about curing fever with food items, it's essential to understand that while certain foods may have properties that could help alleviate symptoms, they should not be considered a replacement for medical treatment. \n\nHoney is one such food item that has been traditionally used for its potential health benefits, including its antimicrobial and antioxidant properties. It contains compounds like fructose, glucose, polyphenol, and thymol. \n\n- Fructose in honey is identical to fructose found in some drugs, suggesting a potential similar mechanism of action in providing energy.\n- Glucose in honey is also identical to glucose in certain medications, indicating a possible role in energy provision and immune system support.\n- Polyphenols have antioxidant properties that could help reduce inflammation and oxidative stress associated with fever, although the match to phenol in drugs is weak.\n- Thymol has antimicrobial properties, which could help combat infections, but its match to thymol in veterinary solutions is weak and not directly applicable to human medicine.\n\nIt's also worth noting a Hadith that suggests cooling the body to alleviate fever symptoms, which can include the use of water or other cooling substances.\n\nHowever, it's crucial to approach this information with caution. The links between honey's compounds and drug equivalents, especially for polyphenol and thymol, are weak. Therefore, it's essential to consult a healthcare professional for proper diagnosis and treatment of fever. They can provide personalized advice based on your specific condition and medical history.\n\nIn summary, while honey and its compounds may have potential benefits, they should not be relied upon as the sole treatment for fever. Always consult a healthcare professional for appropriate medical care.",
+  "confidence_score": 0.59,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "fever",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredients_for_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "get_food_items_from_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "rank_food_items_by_efficacy",
+        "target": "Ingredient"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "fructose",
+        "drug_compound": "Fructose",
+        "drug": "Eraxis",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(fructose)",
+          "DrugCompound(Fructose)",
+          "Drug(Eraxis)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Coagulation Factor IX (Recombinant) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Coagulation Factor IX (Recombinant) for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Reteplase Recombinant for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Reteplase Recombinant for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Immune Globulin (Human) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Immune Globulin (Human) for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Varicella Virus Vaccine Live",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Varicella Virus Vaccine Live)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Cytomegalovirus Immune Globulin IV (Human)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Cytomegalovirus Immune Globulin IV (Human))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Basiliximab for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Basiliximab for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Daunorubicin Citrate Liposome Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Daunorubicin Citrate Liposome Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Infliximab Recombinant for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Infliximab Recombinant for Injection)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "fructose",
+        "drug_compound": "Fructose",
+        "drug": "Eraxis",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(fructose)",
+          "DrugCompound(Fructose)",
+          "Drug(Eraxis)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Coagulation Factor IX (Recombinant) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Coagulation Factor IX (Recombinant) for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Reteplase Recombinant for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Reteplase Recombinant for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Immune Globulin (Human) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Immune Globulin (Human) for Injection)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 281,
+      "avg_causal_score": 0.5754,
+      "max_causal_score": 1.0,
+      "min_causal_score": 0.4083,
+      "strong_paths": 28,
+      "moderate_paths": 4,
+      "weak_paths": 249,
+      "avg_mechanism_score": 0.5516,
+      "avg_path_depth": 4.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present",
+    "faith_alignment_score": 0.895,
+    "confidence_breakdown": {
+      "mapping_strength": 0.42,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.895,
+      "causal_avg": 0.5754,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

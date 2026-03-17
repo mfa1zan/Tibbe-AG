@@ -1,0 +1,197 @@
+{
+  "timestamp": "2026-03-03T18:15:46.252579+00:00",
+  "query": "I'm feeling leg pain, so can you please tell me how can I cure leg pain.",
+  "entities": {
+    "disease": null,
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "associate",
+        "target": "Disease"
+      },
+      {
+        "step": 3,
+        "action": "investigate_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 4,
+        "action": "find_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 5,
+        "action": "trace_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 6,
+        "action": "investigate_chemical_compounds",
+        "target": "ChemicalCompound"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Drug",
+      "Ingredient",
+      "ChemicalCompound"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.325,
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 461,
+  "af_answer_length": 701,
+  "final_answer": "I'm uncertain about the cause of your leg pain, and the provided information does not contain sufficient details to determine a specific cure. It's tentatively possible that the cause of your leg pain may be related to various factors, but without more information, it's difficult to say for sure. \n\nI recommend consulting a healthcare professional to diagnose the underlying cause of your leg pain and receive personalized advice on treatment options. They can help determine the best course of action to alleviate your symptoms. Please consult a healthcare professional for proper evaluation and guidance, as they can provide the most appropriate and safe treatment plan for your specific situation.",
+  "confidence_score": 0.17,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": null,
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "associate",
+        "target": "Disease"
+      },
+      {
+        "step": 3,
+        "action": "investigate_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 4,
+        "action": "find_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 5,
+        "action": "trace_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 6,
+        "action": "investigate_chemical_compounds",
+        "target": "ChemicalCompound"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.325,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.325,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

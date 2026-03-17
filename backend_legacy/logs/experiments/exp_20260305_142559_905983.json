@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-03-05T14:25:59.904943+00:00",
+  "query": "I'm feeling leg pain, tell me what I should use to cure it.",
+  "entities": {
+    "disease": "leg pain",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_treatments",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "trace_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "find_active_compounds",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "evaluate_efficacy",
+        "target": "DrugChemicalCompound"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Drug",
+      "Ingredient",
+      "ChemicalCompound",
+      "DrugChemicalCompound"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 0.85,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.6075,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 554,
+  "af_answer_length": 564,
+  "final_answer": "For leg pain, Heena is a recommended ingredient, as advised by Rasoolullah, according to a Hadith reference from Abu Dawud. Heena has been traditionally used to help with leg pain. It's essential to note that while Heena may be tentatively linked to various compounds and drugs, its traditional use for leg pain relief is the most relevant aspect here.\n\nIt's crucial to consult a healthcare professional before using any new remedies, especially if you have any underlying medical conditions or are taking other medications, to ensure safe and effective treatment.",
+  "confidence_score": 0.28,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "leg pain",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_treatments",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "trace_ingredients",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "find_active_compounds",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "evaluate_efficacy",
+        "target": "DrugChemicalCompound"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.6075,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.6075,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": true,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

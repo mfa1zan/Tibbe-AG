@@ -1,0 +1,717 @@
+{
+  "timestamp": "2026-03-02T07:55:17.156710+00:00",
+  "query": "What is the reason behind Heena being a cure for leg pain.",
+  "entities": {
+    "disease": "leg pain",
+    "ingredient": "Heena",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "get_ingredient_disease_association",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "find_chemical_compounds_in_ingredient",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "identify_drug_chemical_compounds",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace_back_to_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "find_drug_disease_treatment",
+        "target": "Disease"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Ingredient",
+      "ChemicalCompound",
+      "DrugChemicalCompound",
+      "Drug"
+    ]
+  },
+  "paths_used": 1228,
+  "causal_scores": {
+    "total_paths": 1228,
+    "avg_causal_score": 0.5248,
+    "max_causal_score": 1.0,
+    "min_causal_score": 0.4019,
+    "strong_paths": 8,
+    "moderate_paths": 14,
+    "weak_paths": 1206,
+    "avg_mechanism_score": 0.4855,
+    "avg_path_depth": 4.0
+  },
+  "causal_paths_count": 1228,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Kogenate FS",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Iveegam EN",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Ebselen Liposomal Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Acyclovir Sodium Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Alkeran (melphalan)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dihydroergotamine Mesylate Drops",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Vincristine Sulfate Injection (Alternative)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Loperamide Hydrochloride Tablets (2 mg)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Lomeﬂoxacin Hydrochloride Tablets (400 mg)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.82,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present"
+  },
+  "a0_answer_length": 534,
+  "af_answer_length": 486,
+  "final_answer": "Heena may be considered a potential remedy for leg pain due to its various properties. According to a Hadith reference, Hazrat Salma Umme Rafe' stated that Rasoolullah advised Heena for leg pain. However, the exact reason behind Heena being a cure for leg pain is not entirely clear and may be tentatively linked to its potential benefits. It is essential to consult a healthcare professional before using any remedies, as they can provide personalized advice and ensure safe treatment.",
+  "confidence_score": 0.55,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "leg pain",
+      "ingredient": "Heena",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "get_ingredient_disease_association",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "find_chemical_compounds_in_ingredient",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "identify_drug_chemical_compounds",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace_back_to_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "find_drug_disease_treatment",
+        "target": "Disease"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "methanol",
+        "drug_compound": "Methanol",
+        "drug": "Ebselen Liposomal Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(methanol)",
+          "DrugCompound(Methanol)",
+          "Drug(Ebselen Liposomal Injection)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Alkeran (melphalan)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Alkeran (melphalan))"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Dihydroergotamine Mesylate Drops",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Dihydroergotamine Mesylate Drops)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Vincristine Sulfate Injection (Alternative)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Vincristine Sulfate Injection (Alternative))"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL))"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol, ca",
+        "drug": "Loperamide Hydrochloride Tablets (2 mg)",
+        "mapping_strength_label": "LIKELY",
+        "mapping_strength": 0.7,
+        "mechanism_score": 0.7778,
+        "path_depth_score": 1.0,
+        "causal_score": 0.7833,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol, ca)",
+          "Drug(Loperamide Hydrochloride Tablets (2 mg))"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol, ca",
+        "drug": "Lomeﬂoxacin Hydrochloride Tablets (400 mg)",
+        "mapping_strength_label": "LIKELY",
+        "mapping_strength": 0.7,
+        "mechanism_score": 0.7778,
+        "path_depth_score": 1.0,
+        "causal_score": 0.7833,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol, ca)",
+          "Drug(Lomeﬂoxacin Hydrochloride Tablets (400 mg))"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "methanol",
+        "drug_compound": "Methanol",
+        "drug": "Ebselen Liposomal Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(methanol)",
+          "DrugCompound(Methanol)",
+          "Drug(Ebselen Liposomal Injection)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Leg Pain",
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Alkeran (melphalan)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Leg Pain)",
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Alkeran (melphalan))"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 1228,
+      "avg_causal_score": 0.5248,
+      "max_causal_score": 1.0,
+      "min_causal_score": 0.4019,
+      "strong_paths": 8,
+      "moderate_paths": 14,
+      "weak_paths": 1206,
+      "avg_mechanism_score": 0.4855,
+      "avg_path_depth": 4.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present",
+    "faith_alignment_score": 0.82,
+    "confidence_breakdown": {
+      "mapping_strength": 0.358,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.82,
+      "causal_avg": 0.5248,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "followup_intent_classification",
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "followup_intent_classification",
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}
