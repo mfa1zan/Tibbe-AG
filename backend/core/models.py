@@ -20,6 +20,7 @@ class HistoryMessage(BaseModel):
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
+    strict_mode: bool = Field(default=False, description="When true, LLM must only use DB evidence")
 
 
 # ── Response ─────────────────────────────────────────────────────────────────

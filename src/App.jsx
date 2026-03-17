@@ -15,6 +15,7 @@ const createMessage = (role, content, metadata = {}) => ({
 });
 
 const CHAT_STORAGE_KEY = 'kg-chat-messages-v1';
+const STRICT_MODE_STORAGE_KEY = 'kg-chat-strict-mode-v1';
 
 const INITIAL_GREETING = createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?');
 
@@ -91,6 +92,14 @@ function loadInitialMessages() {
   }
 }
 
+function loadInitialStrictMode() {
+  try {
+    return localStorage.getItem(STRICT_MODE_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -101,6 +110,7 @@ function App() {
 
 function AppShell() {
   const [messages, setMessages] = useState(loadInitialMessages);
+  const [strictMode, setStrictMode] = useState(loadInitialStrictMode);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStreamedToken, setHasStreamedToken] = useState(false);
   const [error, setError] = useState('');
@@ -121,6 +131,14 @@ function AppShell() {
       void storageError;
     }
   }, [messages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STRICT_MODE_STORAGE_KEY, String(strictMode));
+    } catch (storageError) {
+      void storageError;
+    }
+  }, [strictMode]);
 
   useEffect(() => () => requestAbortRef.current?.abort(), []);
 
@@ -183,6 +201,7 @@ function AppShell() {
         } =
           await streamMessageToChatApi(messageText, {
             history: historyForApi,
+            strictMode,
             signal: abortController.signal,
             onChunk: (chunk) => {
               setHasStreamedToken(true);
@@ -250,7 +269,7 @@ function AppShell() {
         setHasStreamedToken(false);
       }
     },
-    [isLoading]
+    [isLoading, strictMode]
   );
 
   return (
@@ -316,6 +335,7 @@ function AppShell() {
                   hasStreamedToken={hasStreamedToken}
                   inputValue={inputValue}
                   error={error}
+                  strictMode={strictMode}
                   onInputChange={setInputValue}
                   onSendMessage={handleSendMessage}
                   onCancelGeneration={handleCancelGeneration}
@@ -327,6 +347,8 @@ function AppShell() {
               element={
                 <SettingsPage
                   messages={messages}
+                  strictMode={strictMode}
+                  onStrictModeChange={setStrictMode}
                   onClearConversation={handleClearConversation}
                 />
               }

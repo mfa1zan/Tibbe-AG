@@ -118,7 +118,7 @@ function sleep(ms, signal) {
 }
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { history = [], signal } = options;
+  const { history = [], signal, strictMode = false } = options;
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
@@ -131,7 +131,7 @@ export async function sendMessageToChatApi(message, options = {}) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: message, history }),
+      body: JSON.stringify({ query: message, history, strict_mode: strictMode }),
       signal: combinedSignal
     });
   } catch (error) {

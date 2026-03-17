@@ -29,8 +29,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _run_pipeline(query: str, history: list[dict], debug: bool = False) -> dict[str, Any]:
+async def _run_pipeline(query: str, history: list[dict], debug: bool = False, strict_mode: bool = False) -> dict[str, Any]:
     """Execute the full GraphRAG pipeline and return the response dict."""
+    logger.info("Pipeline strict_mode=%s", strict_mode)
     settings = get_settings()
 
     # ── Step 1: Hybrid entity resolution (LLM + fuzzy DB matching) ───────
@@ -46,12 +47,28 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False) ->
     query_id, params, resolved_intent = query_router.route_query(intent, entities)
 
     if query_id is None:
+        if strict_mode:
+            no_data_answer = (
+                "I could not find relevant information for this query in the knowledge graph database. "
+                "Strict mode is enabled, so I cannot supplement with general knowledge. "
+                "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
+            )
+            return response_builder.build_response(
+                user_query=query,
+                final_answer=no_data_answer,
+                intent=resolved_intent,
+                db_result={"rows": [], "row_count": 0, "query_name": "none", "duration_ms": 0},
+                llm_result={"answer": no_data_answer},
+                entities=entities,
+                debug=debug,
+            )
         # No suitable query — answer without graph evidence
         llm_result = llm_service.generate_answer(
             user_query=query,
             db_results=[],
             intent=resolved_intent,
             query_name="none",
+            strict_mode=strict_mode,
         )
         return response_builder.build_response(
             user_query=query,
@@ -72,16 +89,24 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False) ->
     rows = db_result.get("rows", [])
 
     # ── Step 5: Generate answer (single LLM call) ────────────────────────
-    llm_result = llm_service.generate_answer(
-        user_query=query,
-        db_results=rows,
-        intent=resolved_intent,
-        query_name=db_result.get("query_name", ""),
-    )
-
-    final_answer = llm_result.get("answer", "")
-    if not final_answer.strip():
-        final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
+    if strict_mode and not rows:
+        final_answer = (
+            "I could not find relevant information for this query in the knowledge graph database. "
+            "Strict mode is enabled, so I cannot supplement with general knowledge. "
+            "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
+        )
+        llm_result = {"answer": final_answer}
+    else:
+        llm_result = llm_service.generate_answer(
+            user_query=query,
+            db_results=rows,
+            intent=resolved_intent,
+            query_name=db_result.get("query_name", ""),
+            strict_mode=strict_mode,
+        )
+        final_answer = llm_result.get("answer", "")
+        if not final_answer.strip():
+            final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
 
     # ── Step 6: Judge evaluation ─────────────────────────────────────────
     judge_report: dict[str, Any] | None = None
@@ -124,7 +149,11 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False) ->
 async def chat(request: ChatRequest) -> dict:
     """Standard chat endpoint."""
     try:
-        return await _run_pipeline(request.query, [m.model_dump() for m in request.history])
+        return await _run_pipeline(
+            request.query,
+            [m.model_dump() for m in request.history],
+            strict_mode=request.strict_mode,
+        )
     except Exception:
         logger.exception("/api/chat failed")
         return response_builder.build_error_response()
@@ -138,6 +167,7 @@ async def chat_debug(request: ChatRequest) -> dict:
             request.query,
             [m.model_dump() for m in request.history],
             debug=True,
+            strict_mode=request.strict_mode,
         )
     except Exception:
         logger.exception("/api/chat/debug failed")
