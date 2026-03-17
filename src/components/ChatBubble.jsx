@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
@@ -72,6 +72,7 @@ function ChatBubble({ message }) {
 }
 
 function StructuredFieldsCard({ fields }) {
+  const [collapsed, setCollapsed] = useState(false);
   const entries = Object.entries(fields)
     .filter(([, value]) => value != null && String(value).trim().length > 0)
     .slice(0, 8);
@@ -80,15 +81,27 @@ function StructuredFieldsCard({ fields }) {
 
   return (
     <section className="structured-fields-card" aria-label="Structured evidence fields">
-      <h4 className="structured-fields-title">Structured Evidence</h4>
-      <dl className="structured-fields-grid">
-        {entries.map(([key, value]) => (
-          <div key={key} className="structured-field-item">
-            <dt className="structured-field-key">{formatFieldKey(key)}</dt>
-            <dd className="structured-field-value">{formatFieldValue(value)}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="structured-fields-header">
+        <h4 className="structured-fields-title">Structured Evidence</h4>
+        <button
+          className="structured-fields-toggle"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand evidence' : 'Collapse evidence'}
+        >
+          {collapsed ? '＋' : '−'}
+        </button>
+      </div>
+      {!collapsed && (
+        <dl className="structured-fields-grid">
+          {entries.map(([key, value]) => (
+            <div key={key} className="structured-field-item">
+              <dt className="structured-field-key">{formatFieldKey(key)}</dt>
+              <dd className="structured-field-value">{formatFieldValue(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </section>
   );
 }

@@ -88,7 +88,19 @@
 }
 
 .structured-fields-title {
-  @apply mb-2 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200;
+  @apply text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200;
+  margin: 0;
+}
+
+.structured-fields-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.structured-fields-toggle {
+  @apply flex items-center justify-center w-6 h-6 rounded-md text-sm font-bold leading-none cursor-pointer;
+  @apply text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600;
+  @apply hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors;
+  background: none;
 }
 
 .structured-fields-grid {
