@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import ChatBubble from './ChatBubble';
 import './ChatHistory.css';
@@ -23,12 +23,24 @@ const SCROLL_THRESHOLD = 120;
 function ChatHistory({ messages, isTyping }) {
   const virtuosoRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const hasStreamingMessage = messages.some((message) => message.isStreaming);
 
   /** Track whether the user has scrolled away from the bottom. */
   const handleBottomStateChange = useCallback((isAtBottom) => {
     isNearBottomRef.current = isAtBottom;
+    setShowJumpToBottom(!isAtBottom);
   }, []);
+
+  const handleJumpToBottom = useCallback(() => {
+    isNearBottomRef.current = true;
+    setShowJumpToBottom(false);
+    virtuosoRef.current?.scrollToIndex({
+      index: Math.max(0, messages.length - 1),
+      align: 'end',
+      behavior: 'smooth'
+    });
+  }, [messages.length]);
 
   /** Auto-scroll only when user is near the bottom. */
   useEffect(() => {
@@ -69,6 +81,17 @@ function ChatHistory({ messages, isTyping }) {
           Footer: () => (isTyping && !hasStreamingMessage ? <TypingIndicator /> : null)
         }}
       />
+
+      {showJumpToBottom ? (
+        <button
+          type="button"
+          className="chat-jump-to-bottom"
+          aria-label="Jump to latest messages"
+          onClick={handleJumpToBottom}
+        >
+          ↓
+        </button>
+      ) : null}
     </section>
   );
 }

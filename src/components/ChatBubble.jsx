@@ -2,12 +2,12 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
-import DebugTracePanel from './DebugTracePanel';
 import ReasoningPanel from './ReasoningPanel';
 import './ChatBubble.css';
 
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
+  const isStatusMessage = message.variant === 'status';
   const displayText = message.content || (message.isStreaming ? '...' : '');
   const structuredFields = message.structuredFields;
   const hasStructuredFields =
@@ -21,6 +21,14 @@ function ChatBubble({ message }) {
   const hasPaths = Number.isFinite(message.graphPathsUsed);
   const hasEvidenceStrength = typeof message.evidenceStrength === 'string' && message.evidenceStrength.length > 0;
   const showMeta = !isUser && (hasConfidence || hasPaths || hasEvidenceStrength);
+
+  if (isStatusMessage) {
+    return (
+      <article className="chat-status-row fade-in" aria-live="polite">
+        <p className="chat-status-text">{displayText}</p>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -57,9 +65,6 @@ function ChatBubble({ message }) {
         {hasStructuredFields ? <StructuredFieldsCard fields={structuredFields} /> : null}
         {!isUser && message.reasoningTrace && (
           <ReasoningPanel trace={message.reasoningTrace} />
-        )}
-        {!isUser && message.pipelineDebugTrace && (
-          <DebugTracePanel trace={message.pipelineDebugTrace} />
         )}
       </div>
     </article>

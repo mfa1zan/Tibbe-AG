@@ -7,8 +7,7 @@ const chatResponseSchema = z.object({
   confidence_score: z.number().nullable().optional(),
   safety: z.record(z.unknown()).nullable().optional(),
   reasoning_trace: z.record(z.unknown()).nullable().optional(),
-  structured_fields: z.record(z.unknown()).nullable().optional(),
-  pipeline_debug_trace: z.record(z.unknown()).nullable().optional()
+  structured_fields: z.record(z.unknown()).nullable().optional()
 });
 
 export const CHAT_API_ERROR_CODE = {
@@ -122,12 +121,12 @@ export async function sendMessageToChatApi(message, options = {}) {
   const { history = [], signal } = options;
 
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 120_000);
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
   const combinedSignal = signal ?? timeoutController.signal;
 
   let response;
   try {
-    response = await fetch('/api/chat/debug', {
+    response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -137,6 +136,13 @@ export async function sendMessageToChatApi(message, options = {}) {
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
+      if (signal?.aborted) {
+        throw new ChatApiError('Chat request cancelled', {
+          code: CHAT_API_ERROR_CODE.CANCELLED,
+          retriable: true
+        });
+      }
+
       throw new ChatApiError('Chat request timed out', {
         code: CHAT_API_ERROR_CODE.TIMEOUT,
         retriable: true
@@ -205,10 +211,6 @@ export async function sendMessageToChatApi(message, options = {}) {
     confidenceScore: typeof data.confidence_score === 'number' ? data.confidence_score : null,
     safety: data?.safety && typeof data.safety === 'object' ? data.safety : null,
     reasoningTrace: data?.reasoning_trace && typeof data.reasoning_trace === 'object' ? data.reasoning_trace : null,
-    pipelineDebugTrace:
-      data?.pipeline_debug_trace && typeof data.pipeline_debug_trace === 'object'
-        ? data.pipeline_debug_trace
-        : null,
     structuredFields:
       data?.structured_fields && typeof data.structured_fields === 'object'
         ? data.structured_fields
