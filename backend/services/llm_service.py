@@ -200,6 +200,7 @@ def generate_answer(
     db_results: list[dict],
     intent: str,
     query_name: str,
+    strict_mode: bool = False,
 ) -> dict[str, Any]:
     """Single LLM call: structured DB output → natural language answer.
 
@@ -209,7 +210,25 @@ def generate_answer(
     settings = get_settings()
 
     # Pick intent-specific system prompt
-    system_prompt = _SYSTEM_PROMPTS.get(intent, _SYSTEM_PROMPTS["default"])
+    base_system_prompt = _SYSTEM_PROMPTS.get(intent, _SYSTEM_PROMPTS["default"])
+
+    if strict_mode:
+        mode_instructions = (
+            "\nSTRICT MODE IS ENABLED:\n"
+            "- Use ONLY the provided Knowledge Graph evidence\n"
+            "- Do NOT use outside/general knowledge\n"
+            "- If evidence is insufficient, say so clearly\n"
+        )
+    else:
+        mode_instructions = (
+            "\nSTRICT MODE IS DISABLED:\n"
+            "- Prefer provided Knowledge Graph evidence when available\n"
+            "- If evidence is empty or insufficient, you MAY use well-known general knowledge\n"
+            "- Clearly distinguish KG-supported facts vs general knowledge in wording\n"
+            "- Keep safety-oriented wording and include a medical disclaimer\n"
+        )
+
+    system_prompt = f"{base_system_prompt}\n{mode_instructions}"
 
     # Compact the DB results for the prompt
     evidence_text = json.dumps(db_results[:20], indent=2, default=str)

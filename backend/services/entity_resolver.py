@@ -16,6 +16,8 @@ from difflib import SequenceMatcher, get_close_matches
 from functools import lru_cache
 from typing import Any
 
+from neo4j.exceptions import SessionExpired
+
 from backend.core.config import get_settings
 from backend.services import llm_service
 from backend.services.graph_service import _get_driver
@@ -50,13 +52,21 @@ def _fetch_all_entity_names() -> dict[str, list[str]]:
     driver = _get_driver()
     result: dict[str, list[str]] = {"Disease": [], "Ingredient": [], "Drug": []}
 
+    def _run_name_query(label: str) -> list:
+        with driver.session() as session:
+            return list(session.run(
+                f"MATCH (n:{label}) WHERE n.name IS NOT NULL "
+                f"RETURN DISTINCT n.name AS name"
+            ))
+
     for label in result:
         try:
-            with driver.session() as session:
-                rows = list(session.run(
-                    f"MATCH (n:{label}) WHERE n.name IS NOT NULL "
-                    f"RETURN DISTINCT n.name AS name"
-                ))
+            try:
+                rows = _run_name_query(label)
+            except SessionExpired:
+                logger.warning("Neo4j session expired while loading %s names; retrying once", label)
+                rows = _run_name_query(label)
+
             result[label] = [
                 row["name"] for row in rows
                 if isinstance(row.get("name"), str) and row["name"].strip()
