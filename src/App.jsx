@@ -1,5 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi } from './api';
 import './App.css';
@@ -14,16 +14,35 @@ const createMessage = (role, content, metadata = {}) => ({
   ...metadata
 });
 
-const CHAT_STORAGE_KEY = 'kg-chat-messages-v1';
+/* ─── localStorage keys ─── */
+const SESSIONS_STORAGE_KEY = 'kg-chat-sessions-v1';
 const STRICT_MODE_STORAGE_KEY = 'kg-chat-strict-mode-v1';
 
-const INITIAL_GREETING = createMessage('bot', 'Hello, I am PRO-MedGraph. How can I help you today?');
+function chatMessagesKey(chatId) {
+  return `kg-chat-msg-${chatId}`;
+}
+
+/* ─── SVG Icons ─── */
 
 function SidebarToggleIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
       <path d="M10 4.5V19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NewChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M12 5V19M5 12H19"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -57,6 +76,26 @@ function SettingsIcon() {
   );
 }
 
+function DeleteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="14" height="14">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MoreActionsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="16" height="16">
+      <circle cx="6" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="18" cy="12" r="1.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+/* ─── Helpers ─── */
+
 function sanitizeStoredMessages(rawValue) {
   if (!Array.isArray(rawValue)) return null;
 
@@ -81,14 +120,50 @@ function sanitizeStoredMessages(rawValue) {
   return sanitized.length > 0 ? sanitized : null;
 }
 
-function loadInitialMessages() {
+function loadSessions() {
   try {
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-    if (!raw) return [INITIAL_GREETING];
+    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return sanitizeStoredMessages(parsed) ?? [INITIAL_GREETING];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return [INITIAL_GREETING];
+    return [];
+  }
+}
+
+function saveSessions(sessions) {
+  try {
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  } catch {
+    /* noop */
+  }
+}
+
+function loadMessagesForChat(chatId) {
+  try {
+    const raw = localStorage.getItem(chatMessagesKey(chatId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return sanitizeStoredMessages(parsed) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMessagesForChat(chatId, messages) {
+  try {
+    const persistable = messages.filter((m) => !m.isStreaming);
+    localStorage.setItem(chatMessagesKey(chatId), JSON.stringify(persistable));
+  } catch {
+    /* noop */
+  }
+}
+
+function deleteChat(chatId) {
+  try {
+    localStorage.removeItem(chatMessagesKey(chatId));
+  } catch {
+    /* noop */
   }
 }
 
@@ -100,6 +175,15 @@ function loadInitialStrictMode() {
   }
 }
 
+/** Derive a short title from the first user message. */
+function deriveChatTitle(messageText) {
+  const cleaned = messageText.trim().replace(/\n+/g, ' ');
+  if (cleaned.length <= 40) return cleaned;
+  return cleaned.slice(0, 40).trimEnd() + '…';
+}
+
+/* ─── App ─── */
+
 function App() {
   return (
     <ThemeProvider>
@@ -109,74 +193,164 @@ function App() {
 }
 
 function AppShell() {
-  const [messages, setMessages] = useState(loadInitialMessages);
+  const navigate = useNavigate();
+  const [sessions, setSessions] = useState(loadSessions);
+  const [activeChatId, setActiveChatId] = useState(null); // null = welcome screen
+  const [messages, setMessages] = useState([]);
   const [strictMode, setStrictMode] = useState(loadInitialStrictMode);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStreamedToken, setHasStreamedToken] = useState(false);
   const [error, setError] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [openActionsMenuChatId, setOpenActionsMenuChatId] = useState(null);
   const messagesRef = useRef(messages);
   const requestAbortRef = useRef(null);
 
+  // Keep messagesRef in sync
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Persist messages whenever they change (and we have an active chat)
   useEffect(() => {
-    try {
-      const persistableMessages = messages.filter((message) => !message.isStreaming);
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(persistableMessages));
-    } catch (storageError) {
-      void storageError;
+    if (activeChatId) {
+      saveMessagesForChat(activeChatId, messages);
     }
-  }, [messages]);
+  }, [messages, activeChatId]);
 
+  // Persist strict mode
   useEffect(() => {
     try {
       localStorage.setItem(STRICT_MODE_STORAGE_KEY, String(strictMode));
-    } catch (storageError) {
-      void storageError;
+    } catch {
+      /* noop */
     }
   }, [strictMode]);
 
+  // Cleanup abort on unmount
   useEffect(() => () => requestAbortRef.current?.abort(), []);
+
+  // Sorted sessions (most recent first)
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
+    [sessions]
+  );
+
+  /* ─── Handlers ─── */
+
+  const handleNewChat = useCallback(() => {
+    requestAbortRef.current?.abort();
+    setActiveChatId(null);
+    setMessages([]);
+    setIsLoading(false);
+    setHasStreamedToken(false);
+    setError('');
+    setInputValue('');
+    navigate('/chat');
+  }, [navigate]);
+
+  const handleSelectChat = useCallback((chatId) => {
+    requestAbortRef.current?.abort();
+    setOpenActionsMenuChatId(null);
+    setActiveChatId(chatId);
+    setMessages(loadMessagesForChat(chatId));
+    setIsLoading(false);
+    setHasStreamedToken(false);
+    setError('');
+    setInputValue('');
+    navigate('/chat');
+  }, [navigate]);
+
+  const handleDeleteChat = useCallback(
+    (chatId, event) => {
+      event.stopPropagation();
+      setOpenActionsMenuChatId(null);
+      deleteChat(chatId);
+      setSessions((prev) => {
+        const updated = prev.filter((s) => s.id !== chatId);
+        saveSessions(updated);
+        return updated;
+      });
+      // If we just deleted the active chat, go to welcome screen
+      if (activeChatId === chatId) {
+        setActiveChatId(null);
+        setMessages([]);
+        setIsLoading(false);
+        setHasStreamedToken(false);
+        setError('');
+      }
+    },
+    [activeChatId]
+  );
+
+  const handleRenameChat = useCallback((chatId, currentTitle, event) => {
+    event.stopPropagation();
+
+    const nextTitle = window.prompt('Rename chat', currentTitle);
+    if (nextTitle === null) {
+      return;
+    }
+
+    const trimmed = nextTitle.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setOpenActionsMenuChatId(null);
+    setSessions((prev) => {
+      const updated = prev.map((session) =>
+        session.id === chatId ? { ...session, title: trimmed, updatedAt: Date.now() } : session
+      );
+      saveSessions(updated);
+      return updated;
+    });
+  }, []);
 
   const handleCancelGeneration = useCallback(() => {
     requestAbortRef.current?.abort();
   }, []);
 
-  const handleClearConversation = useCallback(() => {
-    requestAbortRef.current?.abort();
-    setMessages([INITIAL_GREETING]);
-    setIsLoading(false);
-    setHasStreamedToken(false);
-    setError('');
-
-    try {
-      localStorage.removeItem(CHAT_STORAGE_KEY);
-    } catch (storageError) {
-      void storageError;
-    }
-  }, []);
-
   const handleSendMessage = useCallback(
     async (messageText) => {
-      if (isLoading || !messageText.trim()) {
-        return;
-      }
+      if (isLoading || !messageText.trim()) return;
 
       setError('');
       setIsLoading(true);
       setHasStreamedToken(false);
-
-      // Clear input immediately so the field is empty and ready for next message
       setInputValue('');
 
       const optimisticMessage = createMessage('user', messageText.trim());
       const streamingBotMessageId = crypto.randomUUID();
       const abortController = new AbortController();
       requestAbortRef.current = abortController;
+
+      // If no active chat, create a new session
+      let currentChatId = activeChatId;
+      if (!currentChatId) {
+        currentChatId = crypto.randomUUID();
+        const newSession = {
+          id: currentChatId,
+          title: deriveChatTitle(messageText),
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        setActiveChatId(currentChatId);
+        setSessions((prev) => {
+          const updated = [newSession, ...prev];
+          saveSessions(updated);
+          return updated;
+        });
+      } else {
+        // Update the session's updatedAt
+        setSessions((prev) => {
+          const updated = prev.map((s) =>
+            s.id === currentChatId ? { ...s, updatedAt: Date.now() } : s
+          );
+          saveSessions(updated);
+          return updated;
+        });
+      }
 
       setMessages((current) => [
         ...current,
@@ -185,7 +359,6 @@ function AppShell() {
       ]);
 
       try {
-        // Build conversation history for co-reference resolution (last 10 messages)
         const historyForApi = [...messagesRef.current, optimisticMessage]
           .slice(-10)
           .map((m) => ({ role: m.role === 'bot' ? 'bot' : 'user', content: m.content }));
@@ -198,25 +371,21 @@ function AppShell() {
           safety,
           reasoningTrace,
           structuredFields
-        } =
-          await streamMessageToChatApi(messageText, {
-            history: historyForApi,
-            strictMode,
-            signal: abortController.signal,
-            onChunk: (chunk) => {
-              setHasStreamedToken(true);
-              setMessages((current) =>
-                current.map((item) =>
-                  item.id === streamingBotMessageId
-                    ? {
-                        ...item,
-                        content: `${item.content}${chunk}`
-                      }
-                    : item
-                )
-              );
-            }
-          });
+        } = await streamMessageToChatApi(messageText, {
+          history: historyForApi,
+          strictMode,
+          signal: abortController.signal,
+          onChunk: (chunk) => {
+            setHasStreamedToken(true);
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === streamingBotMessageId
+                  ? { ...item, content: `${item.content}${chunk}` }
+                  : item
+              )
+            );
+          }
+        });
 
         setMessages((current) =>
           current.map((item) =>
@@ -235,8 +404,8 @@ function AppShell() {
               : item
           )
         );
-      } catch (error) {
-        const normalizedError = normalizeChatError(error);
+      } catch (err) {
+        const normalizedError = normalizeChatError(err);
         setMessages((current) => {
           if (normalizedError.code === CHAT_API_ERROR_CODE.CANCELLED) {
             const streamingMessage = current.find((item) => item.id === streamingBotMessageId);
@@ -244,9 +413,7 @@ function AppShell() {
               streamingMessage && typeof streamingMessage.content === 'string'
                 ? streamingMessage.content.trim()
                 : '';
-
             const withoutStreaming = current.filter((item) => item.id !== streamingBotMessageId);
-
             if (partialContent) {
               return [
                 ...withoutStreaming,
@@ -254,11 +421,14 @@ function AppShell() {
                 createMessage('bot', 'Request aborted by user.', { variant: 'status' })
               ];
             }
-
-            return [...withoutStreaming, createMessage('bot', 'Request aborted by user.', { variant: 'status' })];
+            return [
+              ...withoutStreaming,
+              createMessage('bot', 'Request aborted by user.', { variant: 'status' })
+            ];
           }
-
-          return current.filter((item) => item.id !== optimisticMessage.id && item.id !== streamingBotMessageId);
+          return current.filter(
+            (item) => item.id !== optimisticMessage.id && item.id !== streamingBotMessageId
+          );
         });
         if (normalizedError.code !== CHAT_API_ERROR_CODE.CANCELLED) {
           setError(normalizedError.userMessage);
@@ -269,8 +439,10 @@ function AppShell() {
         setHasStreamedToken(false);
       }
     },
-    [isLoading, strictMode]
+    [isLoading, strictMode, activeChatId]
   );
+
+  const isWelcomeScreen = activeChatId === null;
 
   return (
     <main className="app-shell">
@@ -278,6 +450,7 @@ function AppShell() {
         className={`app-sidebar ${isSidebarExpanded ? 'app-sidebar-expanded' : 'app-sidebar-collapsed'}`}
         aria-label="Primary navigation"
       >
+        {/* ── Top: logo + brand ── */}
         <div className="app-sidebar-top">
           <button
             type="button"
@@ -290,24 +463,91 @@ function AppShell() {
           </button>
 
           {isSidebarExpanded ? (
-            <>
-              <div className="app-sidebar-brand-text">
-                <h1 className="app-title">PRO-MedGraph</h1>
-                <p className="app-sidebar-subtitle">Biomedical assistant</p>
-              </div>
-            </>
+            <div className="app-sidebar-brand-text">
+              <h1 className="app-title">PRO-MedGraph</h1>
+              <p className="app-sidebar-subtitle">Biomedical assistant</p>
+            </div>
           ) : null}
         </div>
 
-        <nav className="app-nav" aria-label="Primary">
-          <NavLink
-            to="/chat"
-            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-            title="Chat"
-          >
-            <span className="app-nav-icon" aria-hidden="true"><ChatIcon /></span>
-            {isSidebarExpanded ? <span className="app-nav-label">Chat</span> : null}
-          </NavLink>
+        {/* ── New Chat button ── */}
+        <button
+          type="button"
+          className="app-new-chat-button"
+          title="New Chat"
+          onClick={handleNewChat}
+        >
+          <span className="app-nav-icon" aria-hidden="true"><NewChatIcon /></span>
+          {isSidebarExpanded ? <span className="app-nav-label">New Chat</span> : null}
+        </button>
+
+        {/* ── Chat history list ── */}
+        {isSidebarExpanded && sortedSessions.length > 0 ? (
+          <div className="app-sidebar-history">
+            <p className="app-sidebar-history-label">Recent Chats</p>
+            <ul className="app-sidebar-history-list">
+              {sortedSessions.map((session) => (
+                <li key={session.id}>
+                  <button
+                    type="button"
+                    className={`app-sidebar-history-item ${session.id === activeChatId ? 'app-sidebar-history-item-active' : ''}`}
+                    onClick={() => handleSelectChat(session.id)}
+                    title={session.title}
+                  >
+                    <span className="app-sidebar-history-icon"><ChatIcon /></span>
+                    <span className="app-sidebar-history-title">{session.title}</span>
+                    <span
+                      className="app-sidebar-history-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="app-sidebar-history-actions-toggle"
+                        aria-haspopup="menu"
+                        aria-expanded={openActionsMenuChatId === session.id}
+                        aria-label={`Open actions for chat: ${session.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setOpenActionsMenuChatId((current) => (current === session.id ? null : session.id));
+                        }}
+                      >
+                        <MoreActionsIcon />
+                      </button>
+
+                      {openActionsMenuChatId === session.id ? (
+                        <span className="app-sidebar-history-actions-menu" role="menu">
+                          <button
+                            type="button"
+                            className="app-sidebar-history-menu-item"
+                            role="menuitem"
+                            onClick={(event) => handleRenameChat(session.id, session.title, event)}
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            className="app-sidebar-history-menu-item app-sidebar-history-menu-item-delete"
+                            role="menuitem"
+                            onClick={(event) => handleDeleteChat(session.id, event)}
+                          >
+                            <DeleteIcon />
+                            Delete
+                          </button>
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {/* ── Spacer pushes settings to bottom ── */}
+        <div className="app-sidebar-spacer" />
+
+        {/* ── Settings at the bottom ── */}
+        <nav className="app-sidebar-bottom" aria-label="Settings">
           <NavLink
             to="/settings"
             className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
@@ -336,6 +576,7 @@ function AppShell() {
                   inputValue={inputValue}
                   error={error}
                   strictMode={strictMode}
+                  isWelcomeScreen={isWelcomeScreen}
                   onInputChange={setInputValue}
                   onSendMessage={handleSendMessage}
                   onCancelGeneration={handleCancelGeneration}
@@ -346,10 +587,8 @@ function AppShell() {
               path="/settings"
               element={
                 <SettingsPage
-                  messages={messages}
                   strictMode={strictMode}
                   onStrictModeChange={setStrictMode}
-                  onClearConversation={handleClearConversation}
                 />
               }
             />

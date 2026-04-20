@@ -1,28 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
 
 const SETTINGS_TABS = {
   KNOWLEDGE: 'knowledge',
-  DISPLAY: 'display',
-  HISTORY: 'history'
+  DISPLAY: 'display'
 };
 
 function SettingsPage({
-  messages = [],
   strictMode = false,
-  onStrictModeChange,
-  onClearConversation
+  onStrictModeChange
 }) {
   const [activeTab, setActiveTab] = useState(SETTINGS_TABS.KNOWLEDGE);
-
-  const persistedMessages = useMemo(
-    () =>
-      messages
-        .filter((message) => !message.isStreaming && message.role === 'user')
-        .slice()
-        .reverse(),
-    [messages]
-  );
 
   return (
     <section className="app-route-panel">
@@ -47,15 +35,6 @@ function SettingsPage({
             onClick={() => setActiveTab(SETTINGS_TABS.DISPLAY)}
           >
             Display
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === SETTINGS_TABS.HISTORY}
-            className={`app-settings-sidebar-tab ${activeTab === SETTINGS_TABS.HISTORY ? 'app-settings-sidebar-tab-active' : ''}`}
-            onClick={() => setActiveTab(SETTINGS_TABS.HISTORY)}
-          >
-            Chat History
           </button>
         </aside>
 
@@ -97,29 +76,6 @@ function SettingsPage({
                 Customize theme mode, font family, and primary color for your chat workspace.
               </p>
               <ThemeToggle />
-            </div>
-          ) : null}
-
-          {activeTab === SETTINGS_TABS.HISTORY ? (
-            <div className="app-settings-panel app-settings-history" role="tabpanel">
-              <div className="app-route-header">
-                <h3 className="app-route-title">Conversation History</h3>
-                <button type="button" className="app-clear-button" onClick={onClearConversation}>
-                  Clear Chat
-                </button>
-              </div>
-
-              {persistedMessages.length === 0 ? (
-                <p className="app-route-empty">No user messages found yet.</p>
-              ) : (
-                <ul className="app-history-list">
-                  {persistedMessages.map((message) => (
-                    <li key={message.id} className="app-history-item">
-                      {message.content}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           ) : null}
         </div>

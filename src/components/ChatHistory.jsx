@@ -53,18 +53,23 @@ function ChatHistory({ messages, isTyping }) {
     }
   }, [messages, isTyping]);
 
-  /** Always scroll to bottom when the user sends a new message (last msg is "user"). */
+  /** Always scroll to bottom when the user sends a new message (last msg is "user")
+   *  or when a new message is added to the conversation (count changes). */
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.role === 'user') {
+    if (lastMsg?.role === 'user' || lastMsg?.isStreaming) {
       isNearBottomRef.current = true;
-      virtuosoRef.current?.scrollToIndex({
-        index: Math.max(0, messages.length - 1),
-        align: 'end',
-        behavior: 'smooth'
+      setShowJumpToBottom(false);
+      // Use a small timeout to ensure DOM has updated
+      requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: Math.max(0, messages.length - 1),
+          align: 'end',
+          behavior: 'smooth'
+        });
       });
     }
-  }, [messages]);
+  }, [messages.length]);
 
   return (
     <section className="chat-history">
