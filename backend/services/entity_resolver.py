@@ -143,7 +143,7 @@ def _fuzzy_match(query: str, candidates: list[str]) -> tuple[str | None, float]:
     return best_name, best_score
 
 
-def resolve_entities(query: str) -> dict[str, Any]:
+def resolve_entities(query: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
     """Hybrid entity resolution: LLM extraction → fuzzy matching against DB names.
 
     Steps:
@@ -158,7 +158,7 @@ def resolve_entities(query: str) -> dict[str, Any]:
     entity_names = _fetch_all_entity_names()
 
     # ── Step 1: LLM extraction with entity list context ──────────────────
-    llm_entities = _extract_with_entity_context(query, entity_names)
+    llm_entities = _extract_with_entity_context(query, entity_names, history=history)
     logger.info(
         "LLM entities: disease=%s ingredient=%s drug=%s",
         llm_entities.get("disease"), llm_entities.get("ingredient"), llm_entities.get("drug"),
@@ -209,7 +209,11 @@ def resolve_entities(query: str) -> dict[str, Any]:
 # ── LLM Extraction with Entity Context ──────────────────────────────────────
 
 
-def _extract_with_entity_context(query: str, entity_names: dict[str, list[str]]) -> dict[str, str | None]:
+def _extract_with_entity_context(
+    query: str,
+    entity_names: dict[str, list[str]],
+    history: list[dict[str, str]] | None = None,
+) -> dict[str, str | None]:
     """LLM entity extraction with known entity names in the prompt."""
     settings = get_settings()
 
@@ -217,6 +221,20 @@ def _extract_with_entity_context(query: str, entity_names: dict[str, list[str]])
     diseases_str = ", ".join(entity_names.get("Disease", [])[:80])
     ingredients_str = ", ".join(entity_names.get("Ingredient", []))
     drugs_str = ", ".join(entity_names.get("Drug", [])[:80])
+
+    normalized_history: list[dict[str, str]] = []
+    for msg in history or []:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if role == "bot":
+            role = "assistant"
+        if role not in {"user", "assistant"}:
+            continue
+        normalized_history.append({"role": role, "content": content})
 
     messages = [
         {
@@ -236,6 +254,7 @@ def _extract_with_entity_context(query: str, entity_names: dict[str, list[str]])
                 'Example: {"disease": null, "ingredient": "Heena", "drug": null}'
             ),
         },
+        *normalized_history,
         {"role": "user", "content": query},
     ]
 

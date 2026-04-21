@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 INTENT_DISEASE_TREATMENT = "disease_treatment"
 INTENT_DISEASE_FULL_CHAIN = "disease_full_chain"
+INTENT_INGREDIENT_TREATMENT = "ingredient_treatment"
 INTENT_INGREDIENT_COMPOUNDS = "ingredient_compounds"
 INTENT_INGREDIENT_DRUG_MAP = "ingredient_drug_mapping"
 INTENT_DRUG_BOOK = "drug_book"
@@ -47,6 +48,18 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(how many drug|count drug|number of drug)", re.I), INTENT_DRUG_COUNT),
     # Full chain (explicit)
     (re.compile(r"\b(full chain|full trace|complete|explain.*chain|end.to.end)", re.I), INTENT_DISEASE_FULL_CHAIN),
+    (
+        re.compile(
+            r"(what\s+does\s+\w+\s+(cur[ei]|treat|heal|help)|"
+            r"which\s+disease.*\w+\s+(cur[ei]|treat)|"
+            r"what\s+(can|does)\s+\w+\s+(cur[ei]|treat|help)|"
+            r"what\s+is\s+\w+\s+good\s+for|"
+            r"diseases?\s+(treated|cured|healed)\s+by|"
+            r"what\s+does\s+.+\s+treat)",
+            re.I
+        ),
+        INTENT_INGREDIENT_TREATMENT,
+    ),
     # Treatment / cure / remedy (most common — catch-all for disease questions)
     (re.compile(r"\b(help|helps|relief|treat|cur[ei]|remed|heal|therap|disease|illness|condition|symptom|pain|headach|fever|infect)", re.I), INTENT_DISEASE_TREATMENT),
 ]
@@ -126,6 +139,9 @@ def route_query(
     if intent == INTENT_DRUG_SUBSTITUTE and drug:
         # "alternative to paracetamol" → query D1 (drug → book)
         return "D1", {"drug_name": drug}, intent
+
+    if intent == INTENT_INGREDIENT_TREATMENT and ingredient:
+        return "J", {"ingredient_name": ingredient}, intent
 
     # ── Fallback: try to use whatever entity we have ─────────────────────
     if disease:

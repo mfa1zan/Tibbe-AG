@@ -103,6 +103,7 @@ def _compose_multi_segment_answer(
     user_query: str,
     routed_segments: list[dict[str, Any]],
     strict_mode: bool,
+    history: list[dict[str, str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Build a separated answer with one section per segment + a combined guidance section."""
     section_outputs: list[tuple[str, str]] = []
@@ -131,6 +132,7 @@ def _compose_multi_segment_answer(
             intent=result.get("intent", "general"),
             query_name=db_result.get("query_name", ""),
             strict_mode=strict_mode,
+            history=history,
         ).get("answer", "")
 
         cleaned = _strip_repeated_disclaimer(single_answer)
@@ -164,9 +166,9 @@ def _compose_multi_segment_answer(
     return final_answer, {"answer": final_answer, "model": "composed-multi-segment", "duration_ms": 0}
 
 
-def _run_graph_retrieval_for_segment(segment: str) -> dict[str, Any]:
+def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
     """Resolve entities, route intent, and execute one graph query for a segment."""
-    entities = resolve_entities(segment)
+    entities = resolve_entities(segment, history=history)
     intent = query_router.classify_intent(segment, entities)
     query_id, params, resolved_intent = query_router.route_query(intent, entities)
 
@@ -200,6 +202,22 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     logger.info("Pipeline strict_mode=%s", strict_mode)
     settings = get_settings()
 
+    normalized_history: list[dict[str, str]] = []
+    for msg in history or []:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if role == "bot":
+            role = "assistant"
+        if role not in {"user", "assistant"}:
+            continue
+        normalized_history.append({"role": role, "content": content})
+
+    trimmed_history = normalized_history[-6:]
+
     # ── Multi-segment handling for combined prompts ─────────────────────
     segments = _split_query_segments(query)
     if len(segments) == 1:
@@ -210,7 +228,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     if len(segments) > 1:
         logger.info("Detected %d query segments: %s", len(segments), segments)
 
-        segment_results = [_run_graph_retrieval_for_segment(segment) for segment in segments]
+        segment_results = [_run_graph_retrieval_for_segment(segment, history=trimmed_history) for segment in segments]
         routed_segments = [res for res in segment_results if res.get("query_id")]
 
         # Only switch to multi-query mode when at least 2 segments were routed.
@@ -249,7 +267,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
             intents = [res.get("intent", "general") for res in routed_segments]
             merged_intent = intents[0] if intents and all(i == intents[0] for i in intents) else "multi_query"
 
-            entities = resolve_entities(query)
+            entities = resolve_entities(query, history=trimmed_history)
 
             if strict_mode and not combined_rows:
                 final_answer = (
@@ -263,6 +281,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
                     user_query=query,
                     routed_segments=routed_segments,
                     strict_mode=strict_mode,
+                    history=trimmed_history,
                 )
                 if not final_answer:
                     final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
@@ -274,7 +293,9 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
                         user_query=query,
                         answer=final_answer,
                         evidence=combined_rows,
-                        llm_call_fn=lambda msgs, **kw: llm_service._call_llm(msgs, **kw),
+                        llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
+                            msgs, model=settings.model_intent, **kw
+                        ),
                     )
                 except Exception:
                     logger.warning("3C3H judge failed for multi-segment query, falling back to NLP metrics")
@@ -300,7 +321,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
             )
 
     # ── Step 1: Hybrid entity resolution (LLM + fuzzy DB matching) ───────
-    entities = resolve_entities(query)
+    entities = resolve_entities(query, history=trimmed_history)
     logger.info("Resolved entities: disease=%s ingredient=%s drug=%s",
                 entities.get("disease"), entities.get("ingredient"), entities.get("drug"))
 
@@ -334,6 +355,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
             intent=resolved_intent,
             query_name="none",
             strict_mode=strict_mode,
+            history=trimmed_history,
         )
         return response_builder.build_response(
             user_query=query,
@@ -368,6 +390,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
             intent=resolved_intent,
             query_name=db_result.get("query_name", ""),
             strict_mode=strict_mode,
+            history=trimmed_history,
         )
         final_answer = llm_result.get("answer", "")
         if not final_answer.strip():
@@ -382,7 +405,9 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
                 user_query=query,
                 answer=final_answer,
                 evidence=rows,
-                llm_call_fn=lambda msgs, **kw: llm_service._call_llm(msgs, **kw),
+                llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
+                    msgs, model=settings.model_intent, **kw
+                ),
             )
         except Exception:
             logger.warning("3C3H judge failed, falling back to NLP metrics")

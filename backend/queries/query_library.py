@@ -221,6 +221,28 @@ RETURN count(DISTINCT d) AS drug_count
 """,
 )
 
+# ── J. Ingredient → Diseases + Hadith + Reference ─────────────────────────
+
+INGREDIENT_DISEASE_TREATMENT = CypherQuery(
+        id="J",
+        name="Ingredient → Disease → Hadith → Reference",
+        description="Get diseases treated by ingredient + supporting hadith + reference",
+        param_keys=("ingredient_name",),
+        cypher="""\
+MATCH (i:Ingredient)
+WHERE toLower(i.name) = toLower($ingredient_name)
+MATCH (i)-[:CURES]->(d:Disease)
+OPTIONAL MATCH (d)-[:MENTIONED_IN]->(h:Hadith)
+OPTIONAL MATCH (r:Reference)-[:HAS_HADITH]->(h)
+RETURN
+    i.name AS ingredient,
+    d.name AS disease,
+    h.name AS hadith_text,
+    r.reference AS reference
+LIMIT 20
+""",
+)
+
 
 # ── Lookup by ID ─────────────────────────────────────────────────────────────
 
@@ -237,5 +259,6 @@ ALL_QUERIES: dict[str, CypherQuery] = {
         SOURCE_VALIDATION,
         ADVANCED_FILTERING,
         COUNT_DRUGS_FOR_INGREDIENT,
+        INGREDIENT_DISEASE_TREATMENT,
     ]
 }

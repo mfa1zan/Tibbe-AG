@@ -76,6 +76,7 @@ def _call_llm(
 # ── Entity Extraction ────────────────────────────────────────────────────────
 
 
+# DEPRECATED: unused legacy function. Use resolve_entities() instead.
 def extract_entities(user_query: str) -> dict[str, str | None]:
     """Use a lightweight LLM call to extract disease, ingredient, and drug names.
 
@@ -164,6 +165,14 @@ _SYSTEM_PROMPTS = {
         "- Do NOT include chemical compounds or drug mappings unless explicitly asked\n"
         "- End with a medical disclaimer\n"
     ),
+    "ingredient_treatment": (
+        "You are PRO-MedGraph, a biomedical and faith-aligned assistant specializing in Prophetic medicine.\n"
+        "The user wants to know which diseases a natural ingredient can cure or treat.\n"
+        "List the diseases this ingredient is linked to in the knowledge graph.\n"
+        "If hadith references exist, cite them respectfully.\n"
+        "Keep the answer practical and user-friendly.\n"
+        "End with a medical disclaimer."
+    ),
     "disease_full_chain": (
         "You are PRO-MedGraph, a biomedical and faith-aligned assistant.\n"
         "Present the full chain: Disease → Ingredients → Compounds → Drug equivalents.\n"
@@ -213,6 +222,7 @@ def generate_answer(
     intent: str,
     query_name: str,
     strict_mode: bool = False,
+    history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Single LLM call: structured DB output → natural language answer.
 
@@ -262,8 +272,23 @@ def generate_answer(
     # Compact the DB results for the prompt
     evidence_text = json.dumps(db_results[:20], indent=2, default=str)
 
+    normalized_history: list[dict[str, str]] = []
+    for msg in history or []:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if role == "bot":
+            role = "assistant"
+        if role not in {"user", "assistant"}:
+            continue
+        normalized_history.append({"role": role, "content": content})
+
     messages = [
         {"role": "system", "content": system_prompt},
+        *normalized_history,
         {
             "role": "user",
             "content": (
