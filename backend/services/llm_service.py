@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -178,7 +179,7 @@ _SYSTEM_PROMPTS = {
     "hadith_info": (
         "You are PRO-MedGraph, a faith-aligned assistant.\n"
         "Present hadith references related to the disease/ingredient.\n"
-        "Frame hadith respectfully. Cite book references and links if available.\n"
+        "Frame hadith respectfully. Cite book references.\n"
         "End with a medical disclaimer.\n"
     ),
     "default": (
@@ -193,6 +194,17 @@ _SYSTEM_PROMPTS = {
         "- Always include a disclaimer that users should consult healthcare professionals\n"
     ),
 }
+
+
+_SOURCE_REQUEST_RE = re.compile(
+    r"\b(source|sources|reference|references|citation|citations|link|links|where\s+it\s+is\s+mentioned|where\s+mentioned|which\s+book|proof)\b",
+    re.I,
+)
+
+
+def _user_requested_sources(user_query: str) -> bool:
+    """Return True when user explicitly asks for source/citation/link details."""
+    return bool(_SOURCE_REQUEST_RE.search(user_query or ""))
 
 
 def generate_answer(
@@ -211,6 +223,7 @@ def generate_answer(
 
     # Pick intent-specific system prompt
     base_system_prompt = _SYSTEM_PROMPTS.get(intent, _SYSTEM_PROMPTS["default"])
+    wants_sources = _user_requested_sources(user_query)
 
     if strict_mode:
         mode_instructions = (
@@ -228,7 +241,23 @@ def generate_answer(
             "- Keep safety-oriented wording and include a medical disclaimer\n"
         )
 
-    system_prompt = f"{base_system_prompt}\n{mode_instructions}"
+    if wants_sources:
+        source_policy = (
+            "\nSOURCE POLICY:\n"
+            "- The user explicitly requested sources/references\n"
+            "- Include concise citations and URLs only when present in evidence\n"
+            "- Do not invent links or references\n"
+        )
+    else:
+        source_policy = (
+            "\nSOURCE POLICY:\n"
+            "- The user did NOT explicitly ask for sources\n"
+            "- Do NOT include URLs, download links, or raw book links in the answer\n"
+            "- Keep response focused on treatment guidance and ingredients\n"
+            "- You may mention reference names briefly without hyperlinks if needed\n"
+        )
+
+    system_prompt = f"{base_system_prompt}\n{mode_instructions}\n{source_policy}"
 
     # Compact the DB results for the prompt
     evidence_text = json.dumps(db_results[:20], indent=2, default=str)

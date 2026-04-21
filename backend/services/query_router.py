@@ -48,7 +48,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     # Full chain (explicit)
     (re.compile(r"\b(full chain|full trace|complete|explain.*chain|end.to.end)", re.I), INTENT_DISEASE_FULL_CHAIN),
     # Treatment / cure / remedy (most common — catch-all for disease questions)
-    (re.compile(r"\b(treat|cur[ei]|remed|heal|therap|disease|illness|condition|symptom|pain|fever|infect)", re.I), INTENT_DISEASE_TREATMENT),
+    (re.compile(r"\b(help|helps|relief|treat|cur[ei]|remed|heal|therap|disease|illness|condition|symptom|pain|headach|fever|infect)", re.I), INTENT_DISEASE_TREATMENT),
 ]
 
 
@@ -129,7 +129,7 @@ def route_query(
 
     # ── Fallback: try to use whatever entity we have ─────────────────────
     if disease:
-        return "E", {"disease_name": disease}, INTENT_DISEASE_FULL_CHAIN
+        return "A", {"disease_name": disease}, INTENT_DISEASE_TREATMENT
 
     if ingredient:
         return "C", {"ingredient_name": ingredient}, INTENT_INGREDIENT_DRUG_MAP
