@@ -543,9 +543,6 @@ function AppShell() {
           </div>
         ) : null}
 
-        {/* ── Spacer pushes settings to bottom ── */}
-        <div className="app-sidebar-spacer" />
-
         {/* ── Settings at the bottom ── */}
         <nav className="app-sidebar-bottom" aria-label="Settings">
           <NavLink
