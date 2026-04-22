@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 INTENT_DISEASE_TREATMENT = "disease_treatment"
 INTENT_DISEASE_FULL_CHAIN = "disease_full_chain"
+INTENT_DISEASE_DRUG = "disease_drug"
 INTENT_INGREDIENT_TREATMENT = "ingredient_treatment"
 INTENT_INGREDIENT_COMPOUNDS = "ingredient_compounds"
 INTENT_INGREDIENT_DRUG_MAP = "ingredient_drug_mapping"
@@ -42,6 +43,18 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(compound|chemical|composition|molecule)", re.I), INTENT_INGREDIENT_COMPOUNDS),
     # Drug mapping / alternative / equivalent
     (re.compile(r"\b(mapping|map|equivalent|alternativ|similar.drug|replac)", re.I), INTENT_INGREDIENT_DRUG_MAP),
+    (
+        re.compile(
+            r"(drug[s]?\s+(for|to|that|which)\s+(cur[ei]|treat|help)|"
+            r"(cur[ei]|treat|help)\s+\w+\s+with\s+drug|"
+            r"medicine[s]?\s+(for|to|that)\s+(cur[ei]|treat)|"
+            r"what\s+drug[s]?\s+(cur[ei]|treat|help|for)|"
+            r"which\s+drug[s]?\s+(can|to|for)|"
+            r"tell\s+me\s+(the\s+)?drug[s]?\s+(to|for|which|that))",
+            re.I
+        ),
+        INTENT_DISEASE_DRUG,
+    ),
     # Drug / book / source
     (re.compile(r"\b(drug|pharma|tablet|capsule|book|download|source)", re.I), INTENT_DRUG_BOOK),
     # Count drugs
@@ -128,6 +141,9 @@ def route_query(
         return "I", {"ingredient_name": ingredient}, intent
 
     # ── Drug-centric intents ─────────────────────────────────────────────
+    if intent == INTENT_DISEASE_DRUG and disease:
+        return "E", {"disease_name": disease}, intent
+
     if intent == INTENT_DRUG_BOOK and drug:
         return "D1", {"drug_name": drug}, intent
 

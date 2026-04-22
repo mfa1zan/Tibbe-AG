@@ -370,6 +370,20 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     # ── Step 4: Execute query against Neo4j ──────────────────────────────
     db_result = graph_service.execute_query(query_id, params)
 
+    # ── Special handling: disease_drug runs two queries ──
+    if resolved_intent == "disease_drug" and entities.get("disease"):
+        db_result_a = graph_service.execute_query(
+            "A", {"disease_name": entities["disease"]}
+        )
+        rows_a = db_result_a.get("rows", []) or []
+        rows_e = db_result.get("rows", []) or []
+        combined = rows_a + rows_e
+        db_result = {
+            **db_result,
+            "rows": combined,
+            "row_count": len(combined),
+        }
+
     if db_result.get("error"):
         logger.error("Graph query error: %s", db_result["error"])
 
