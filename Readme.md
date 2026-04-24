@@ -6,56 +6,52 @@ Repository: https://github.com/mfa1zan/Tibbe-AG.git
 
 ## Features
 
+- GraphRAG pipeline: Entity Resolution → Intent Classification → Neo4j Query → LLM Answer → Judge Evaluation
+- Hybrid entity matching: LLM extraction + fuzzy matching against 154 diseases, 59 ingredients, 972 drugs from DB
+- Intent-specific answer generation (substitution, treatment, compounds, hadith, full chain)
+- Answer quality judge (3C3H LLM-as-judge + NLP metrics)
 - React chat interface with typing indicator, provenance display, and responsive layout
 - Dark/light mode, font selection, and primary color customization with local persistence
-- FastAPI backend endpoint: `POST /api/chat`
-- Frontend API adapter with runtime response validation and normalized error categories
-- ESLint setup for React + Hooks code-quality enforcement
 - Markdown rendering (sanitized) for assistant responses
 - Structured evidence field cards rendered in chat bubbles
 - Local message persistence for chat session recovery
-- Route-based app shell (`/chat`, `/history`, `/settings`)
-- Virtualized chat history rendering for better long-conversation performance
-- Route-level code splitting (lazy-loaded pages) to reduce initial frontend bundle cost
-- Query preprocessing (normalization + synonym expansion)
-- Neo4j KG retrieval with TTL caching
-- Async LLM reasoning via Groq-compatible API
-- Optional session-based multi-turn memory
 
 ## Tech Stack
 
-- Frontend: React 18, Vite, TailwindCSS
-- Frontend routing/UI performance: React Router, React Virtuoso
-- Frontend quality: ESLint 9 (flat config), React Hooks lint rules
-- Backend: FastAPI, Neo4j Python Driver, HTTPX
-- LLM: Groq Chat Completions API (Llama models)
+- **Frontend**: React 18, Vite, TailwindCSS, React Router, React Virtuoso
+- **Backend**: FastAPI, Neo4j Python Driver, HTTPX, Pydantic Settings
+- **LLM**: Groq Chat Completions API (Llama models)
+- **Database**: Neo4j (Aura or local)
 
 ## Project Structure
 
 ```text
 Tibbe-AG/
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── schemas.py
-│   │   └── services/
-│   │       ├── preprocess.py
-│   │       ├── kg_service.py
-│   │       ├── llm_service.py
-│   │       └── orchestrator.py
-│   ├── .env
+├── backend/                    ← New clean backend (v2)
+│   ├── main.py                 ← FastAPI app + lifespan
+│   ├── api/chat.py             ← /api/chat, /api/chat/debug
+│   ├── core/
+│   │   ├── config.py           ← Settings from .env
+│   │   └── models.py           ← Request/Response schemas
+│   ├── services/
+│   │   ├── entity_resolver.py  ← Hybrid LLM + fuzzy entity matching
+│   │   ├── query_router.py     ← Intent classification + query routing
+│   │   ├── graph_service.py    ← Neo4j query execution
+│   │   ├── llm_service.py      ← LLM calls (entity extraction + answer)
+│   │   ├── judge_service.py    ← 3C3H / NLP answer evaluation
+│   │   └── response_builder.py ← Final response assembly
+│   ├── queries/
+│   │   └── query_library.py    ← 9 predefined Cypher queries
+│   ├── utils/helpers.py
 │   ├── .env.example
 │   └── requirements.txt
-├── src/
+├── backend_legacy/             ← Old backend (preserved, not used)
+├── src/                        ← React frontend
 │   ├── App.jsx
 │   ├── api.js
 │   ├── components/
-│   ├── context/ThemeContext.jsx
 │   ├── pages/
 │   └── *.css
-├── eslint.config.js
-├── .env
 ├── package.json
 └── vite.config.js
 ```
@@ -116,7 +112,15 @@ pip install -r backend\requirements.txt
 
 > **Note (Windows PowerShell):** If you get an execution policy error, run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` first.
 
-Create/update `backend/.env`:
+### 4) Configure Environment
+
+Copy the example and fill in your credentials:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Edit `backend/.env`:
 
 ```env
 NEO4J_URI=neo4j+s://<your-db>.databases.neo4j.io
@@ -127,11 +131,14 @@ GROQ_API_KEY=<your-groq-api-key>
 GROQ_MODEL=llama-3.3-70b-versatile
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 
-KG_CACHE_TTL_SECONDS=600
-KG_CACHE_MAXSIZE=512
+MODEL_INTENT=llama-3.1-8b-instant
+MODEL_CHAT=llama-3.3-70b-versatile
+
+ENABLE_JUDGE=true
+LOG_LEVEL=INFO
 ```
 
-## Run (Recommended)
+## Run
 
 ### Start full stack from root
 
@@ -146,16 +153,23 @@ This runs:
 
 ### Or run separately
 
-Terminal 1:
+Terminal 1 (backend):
 
 ```bash
 npm run dev:backend
 ```
 
-Terminal 2:
+Terminal 2 (frontend):
 
 ```bash
 npm run dev:frontend
+```
+
+### Or run backend directly
+
+```bash
+source .venv/bin/activate
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
 ## API
@@ -179,68 +193,52 @@ Response:
 ```json
 {
   "final_answer": "...",
-  "evidence_strength": "weak|moderate|strong",
-  "graph_paths_used": 0,
-  "confidence_score": 0.0,
-  "reasoning_trace": {}
+  "evidence_strength": "weak|moderate|strong|none",
+  "graph_paths_used": 8,
+  "confidence_score": 0.88,
+  "safety": null,
+  "reasoning_trace": {
+    "entity_detected": { "disease": "Fever", "ingredient": null, "drug": null },
+    "intent": "disease_treatment",
+    "query_used": "Disease → Ingredient → Hadith → Reference",
+    "evidence_count": 8
+  },
+  "structured_fields": { "ingredients": ["Honey", "Water"] },
+  "pipeline_debug_trace": null
 }
 ```
 
-Notes:
+### POST `/api/chat/debug`
 
-- Frontend maps API fields to UI message fields (`reply`, `confidenceScore`, etc.) in `src/api.js`.
-- `structured_fields` from backend payloads are rendered as structured evidence cards in assistant messages.
-- Frontend optimizations do **not** change the backend contract: request (`query`, `history`) and response (`final_answer`, metadata) remain identical.
+Same as `/api/chat` but includes `pipeline_debug_trace` with full pipeline details (entities, Cypher query, DB timing, LLM timing, judge report).
+
+### GET `/health`
+
+Returns `{"status": "ok"}`.
+
+## Pipeline
+
+```
+User Query
+  → Entity Resolution (LLM + fuzzy matching against DB names)
+  → Intent Classification (keyword + entity-aware)
+  → Query Selection (deterministic routing to 1 of 9 Cypher queries)
+  → Neo4j Execution (predefined query, case-insensitive)
+  → Answer Generation (LLM with intent-specific prompt)
+  → Judge Evaluation (3C3H or NLP metrics)
+  → Response Assembly → Frontend
+```
 
 ## Code Quality
 
-Run lint checks:
-
 ```bash
 npm run lint
-```
-
-Auto-fix lint issues where possible:
-
-```bash
 npm run lint:fix
-```
-
-Current lint config is defined in `eslint.config.js` and enforces:
-
-- core JavaScript correctness rules
-- React Hooks best practices
-- no unused variables and consistent module hygiene
-
-## Frontend Status (March 2026)
-
-Implemented baseline:
-
-- Runtime API payload validation + normalized frontend error handling
-- Safer conversation history composition in chat send flow
-- Project-wide ESLint command + configuration
-- Streaming-capable frontend rendering (incremental assistant output playback)
-- User-controlled stop/cancel generation action in chat input
-- Structured fields rendering in chat bubbles
-- Sanitized markdown rendering for assistant answers
-- Chat message persistence in local storage with restore on refresh
-
-Planned next modernization steps:
-
-- Mobile input layout improvements and responsive spacing refinements
-- End-to-end tests for chat, settings, and history routes
-
-## Build
-
-```bash
-npm run build
 ```
 
 ## Troubleshooting
 
 ### `POST http://localhost:5173/api/chat 500`
-
-Usually means frontend proxy cannot reach backend or backend failed at runtime.
 
 1. Ensure backend is running on port `8010`:
 
@@ -257,12 +255,6 @@ npm run dev:backend
 3. Check backend terminal logs for Neo4j/Groq errors.
 4. Verify `backend/.env` values (URI, keys, passwords).
 5. Restart both frontend and backend after any `.env` changes.
-
-### Theme not changing
-
-1. Hard refresh browser (`Cmd+Shift+R` on macOS, `Ctrl+Shift+R` on Windows/Linux).
-2. Check that `<html>` class toggles between `light` and `dark` in devtools.
-3. Clear site data/localStorage if stale values exist.
 
 ## Security
 

@@ -1,0 +1,705 @@
+{
+  "timestamp": "2026-02-28T19:40:30.644634+00:00",
+  "query": "Can you provide me at least one hadith that mentions fever?",
+  "entities": {
+    "disease": "Fever",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": "1",
+        "action": "Identify disease from query",
+        "target": "Disease"
+      },
+      {
+        "step": "2",
+        "action": "Find ingredients that cure the disease",
+        "target": "Ingredient"
+      },
+      {
+        "step": "3",
+        "action": "Extract chemical compounds from ingredients",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": "4",
+        "action": "Match compounds to drug equivalents",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": "5",
+        "action": "Identify linked pharmaceutical drugs",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "default",
+    "relevant_node_types": [
+      "Disease",
+      "Ingredient",
+      "ChemicalCompound",
+      "DrugChemicalCompound",
+      "Drug"
+    ]
+  },
+  "paths_used": 1480,
+  "causal_scores": {
+    "total_paths": 1480,
+    "avg_causal_score": 0.5354,
+    "max_causal_score": 1.0,
+    "min_causal_score": 0.4019,
+    "strong_paths": 29,
+    "moderate_paths": 9,
+    "weak_paths": 1442,
+    "avg_mechanism_score": 0.51,
+    "avg_path_depth": 4.0
+  },
+  "causal_paths_count": 1480,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Eraxis",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Acyclovir Sodium Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "BeneFIX (coagulation factor IX)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Enbrel",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Immune Globulin (Human) for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Doxil",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Etanercept Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Daunorubicin Citrate Liposome Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Leukine",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": false,
+    "framing_score": 0.3,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.72,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present; Answer framing could include more professional caveats"
+  },
+  "a0_answer_length": 124,
+  "af_answer_length": 124,
+  "final_answer": "I could not generate a complete graph-grounded draft answer. Available evidence appears limited, so please refine the query.",
+  "confidence_score": 0.56,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "Fever",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": "1",
+        "action": "Identify disease from query",
+        "target": "Disease"
+      },
+      {
+        "step": "2",
+        "action": "Find ingredients that cure the disease",
+        "target": "Ingredient"
+      },
+      {
+        "step": "3",
+        "action": "Extract chemical compounds from ingredients",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": "4",
+        "action": "Match compounds to drug equivalents",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": "5",
+        "action": "Identify linked pharmaceutical drugs",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "Vitamin D",
+        "drug_compound": "Vitamin D",
+        "drug": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(Vitamin D)",
+          "DrugCompound(Vitamin D)",
+          "Drug(Ascorbic Acid and B Complex Vitamins (Vial 1))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "fructose",
+        "drug_compound": "Fructose",
+        "drug": "Eraxis",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(fructose)",
+          "DrugCompound(Fructose)",
+          "Drug(Eraxis)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "BeneFIX (coagulation factor IX)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(BeneFIX (coagulation factor IX))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Enbrel",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Enbrel)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Immune Globulin (Human) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Immune Globulin (Human) for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Doxil",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Doxil)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Etanercept Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Etanercept Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Daunorubicin Citrate Liposome Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Daunorubicin Citrate Liposome Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Leukine",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Leukine)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "Vitamin D",
+        "drug_compound": "Vitamin D",
+        "drug": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(Vitamin D)",
+          "DrugCompound(Vitamin D)",
+          "Drug(Ascorbic Acid and B Complex Vitamins (Vial 1))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "fructose",
+        "drug_compound": "Fructose",
+        "drug": "Eraxis",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(fructose)",
+          "DrugCompound(Fructose)",
+          "Drug(Eraxis)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "BeneFIX (coagulation factor IX)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(BeneFIX (coagulation factor IX))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Enbrel",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Enbrel)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 1480,
+      "avg_causal_score": 0.5354,
+      "max_causal_score": 1.0,
+      "min_causal_score": 0.4019,
+      "strong_paths": 29,
+      "moderate_paths": 9,
+      "weak_paths": 1442,
+      "avg_mechanism_score": 0.51,
+      "avg_path_depth": 4.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present; Answer framing could include more professional caveats",
+    "faith_alignment_score": 0.72,
+    "confidence_breakdown": {
+      "mapping_strength": 0.365,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.72,
+      "causal_avg": 0.5354,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

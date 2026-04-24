@@ -1,0 +1,178 @@
+{
+  "timestamp": "2026-03-02T19:44:01.790354+00:00",
+  "query": "Can you provide a Hadith that supports the claim that Heena may help cure leg pain?",
+  "entities": {
+    "disease": "leg pain",
+    "ingredient": "Heena",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find_disease_info",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredient_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "find_ingredient_hadith",
+        "target": "Hadith"
+      },
+      {
+        "step": 4,
+        "action": "verify_ingredient_disease_relationship",
+        "target": "Disease"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Ingredient",
+      "Hadith"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.57,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 298,
+  "af_answer_length": 295,
+  "final_answer": "Heena may help cure leg pain, according to a Hadith reference. The ingredient Heena is linked to leg pain. A Hadith by Hazrat Salma Umme Rafe’ mentions that Rasoolullah advised Heena for leg pain. Please consult a healthcare professional before using Heena or any other remedy to treat leg pain.",
+  "confidence_score": 0.28,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "leg pain",
+      "ingredient": "Heena",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find_disease_info",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredient_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "find_ingredient_hadith",
+        "target": "Hadith"
+      },
+      {
+        "step": 4,
+        "action": "verify_ingredient_disease_relationship",
+        "target": "Disease"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.57,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.57,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": true,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

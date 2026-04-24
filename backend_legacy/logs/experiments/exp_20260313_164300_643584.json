@@ -1,0 +1,675 @@
+{
+  "timestamp": "2026-03-13T16:43:00.643376+00:00",
+  "query": "Tell me some drugs which I should use instead of using heena",
+  "entities": {
+    "disease": null,
+    "ingredient": "heena",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify alternatives",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "trace forward to drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "filter by similar use",
+        "target": "Drug"
+      },
+      {
+        "step": 4,
+        "action": "rank by efficacy and safety",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Ingredient",
+      "Drug"
+    ]
+  },
+  "paths_used": 1228,
+  "causal_scores": {
+    "total_paths": 1228,
+    "avg_causal_score": 0.5925,
+    "max_causal_score": 0.92,
+    "min_causal_score": 0.5104,
+    "strong_paths": 8,
+    "moderate_paths": 14,
+    "weak_paths": 1206,
+    "avg_mechanism_score": 0.4855,
+    "avg_path_depth": 3.0
+  },
+  "causal_paths_count": 1228,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Kogenate FS",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Alkeran (melphalan)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Vincristine Sulfate Injection (Alternative)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dihydroergotamine Mesylate Drops",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Acyclovir Sodium Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Iveegam EN",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Ebselen Liposomal Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Loperamide Hydrochloride Tablets (2 mg)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Heena",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Lomeﬂoxacin Hydrochloride Tablets (400 mg)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.575,
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present"
+  },
+  "a0_answer_length": 984,
+  "af_answer_length": 1024,
+  "final_answer": "Heena is associated with several chemical compounds, including copper and ethanol, which are linked to various drugs. Based on the available data, some potential drug alternatives to Heena include Kogenate FS, which has a strong link with copper, a chemical compound found in Heena. Another option is Alkeran (melphalan), which has a strong link with ethanol, also found in Heena. Other potential alternatives include Sulfamoxole + Trimethoprim Veterinary Injectable Solution, Vincristine Sulfate Injection, and Dihydroergotamine Mesylate Drops, all of which have links with ethanol, although the alignment scores are relatively low, indicating some uncertainty in these recommendations.\n\nIt is essential to note that the dosage comparison data is limited, and the alignment scores are relatively low, indicating some uncertainty in these recommendations. Please consult a healthcare professional before using any of these drugs, as they may have different indications, contraindications, and side effects compared to Heena.",
+  "confidence_score": 0.45,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": null,
+      "ingredient": "heena",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify alternatives",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "trace forward to drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "filter by similar use",
+        "target": "Drug"
+      },
+      {
+        "step": 4,
+        "action": "rank by efficacy and safety",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Alkeran (melphalan)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Alkeran (melphalan))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Vincristine Sulfate Injection (Alternative)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Vincristine Sulfate Injection (Alternative))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Dihydroergotamine Mesylate Drops",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Dihydroergotamine Mesylate Drops)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "methanol",
+        "drug_compound": "Methanol",
+        "drug": "Ebselen Liposomal Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(methanol)",
+          "DrugCompound(Methanol)",
+          "Drug(Ebselen Liposomal Injection)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol, ca",
+        "drug": "Loperamide Hydrochloride Tablets (2 mg)",
+        "mapping_strength_label": "LIKELY",
+        "mapping_strength": 0.7,
+        "mechanism_score": 0.7778,
+        "path_depth_score": 0.8,
+        "causal_score": 0.7706,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol, ca)",
+          "Drug(Loperamide Hydrochloride Tablets (2 mg))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol, ca",
+        "drug": "Lomeﬂoxacin Hydrochloride Tablets (400 mg)",
+        "mapping_strength_label": "LIKELY",
+        "mapping_strength": 0.7,
+        "mechanism_score": 0.7778,
+        "path_depth_score": 0.8,
+        "causal_score": 0.7706,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol, ca)",
+          "Drug(Lomeﬂoxacin Hydrochloride Tablets (400 mg))"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Alkeran (melphalan)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Alkeran (melphalan))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Sulfamoxole + Trimethoprim Veterinary Injectable Solution (400 mg + 80 mg/10 mL))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Vincristine Sulfate Injection (Alternative)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Vincristine Sulfate Injection (Alternative))"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": "Heena",
+        "compound": "ethanol",
+        "drug_compound": "Ethanol",
+        "drug": "Dihydroergotamine Mesylate Drops",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 0.8,
+        "causal_score": 0.92,
+        "hop_count": 3,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Ingredient(Heena)",
+          "Compound(ethanol)",
+          "DrugCompound(Ethanol)",
+          "Drug(Dihydroergotamine Mesylate Drops)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 1228,
+      "avg_causal_score": 0.5925,
+      "max_causal_score": 0.92,
+      "min_causal_score": 0.5104,
+      "strong_paths": 8,
+      "moderate_paths": 14,
+      "weak_paths": 1206,
+      "avg_mechanism_score": 0.4855,
+      "avg_path_depth": 3.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present",
+    "faith_alignment_score": 0.575,
+    "confidence_breakdown": {
+      "mapping_strength": 0.358,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.575,
+      "causal_avg": 0.5925,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

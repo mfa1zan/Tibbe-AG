@@ -1,0 +1,471 @@
+{
+  "timestamp": "2026-03-11T05:38:11.792641+00:00",
+  "query": "What drugs can I use instead of Honey?",
+  "entities": {
+    "disease": null,
+    "ingredient": "Honey",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find ingredients related to",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "map ingredients to drugs",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Ingredient",
+      "Drug"
+    ]
+  },
+  "paths_used": 466,
+  "causal_scores": {
+    "total_paths": 466,
+    "avg_causal_score": 0.2349,
+    "max_causal_score": 0.36,
+    "min_causal_score": 0.2235,
+    "strong_paths": 20,
+    "moderate_paths": 35,
+    "weak_paths": 411,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 466,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Eraxis",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Iveegam EN",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Dibenzazepine Carboxamide Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": false,
+    "framing_score": 0.3,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.475,
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present; Answer framing could include more professional caveats"
+  },
+  "a0_answer_length": 57,
+  "af_answer_length": 57,
+  "final_answer": "I could not find this information in the knowledge graph.",
+  "confidence_score": 0.48,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive.",
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": null,
+      "ingredient": "Honey",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find ingredients related to",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "map ingredients to drugs",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Fructose",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Fructose)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Alanine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Alanine)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Proline",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Proline)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Cholesterol",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Cholesterol)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Alcohol ethanol",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Alcohol ethanol)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Biotin",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Biotin)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Leucine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Leucine)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Lysine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Lysine)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Methionine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Methionine)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Tyrosine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Tyrosine)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Fructose",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Fructose)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Alanine",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Alanine)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Proline",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Proline)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Cholesterol",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Cholesterol)"
+        ]
+      },
+      {
+        "disease": null,
+        "ingredient": null,
+        "compound": null,
+        "drug_compound": "Alcohol ethanol",
+        "drug": null,
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 0.0,
+        "path_depth_score": 0.0,
+        "causal_score": 0.36,
+        "hop_count": 0,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "DrugCompound(Alcohol ethanol)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 466,
+      "avg_causal_score": 0.2349,
+      "max_causal_score": 0.36,
+      "min_causal_score": 0.2235,
+      "strong_paths": 20,
+      "moderate_paths": 35,
+      "weak_paths": 411,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 3
+    },
+    "faith_alignment_notes": "No Hadith references present; Scientific compound-drug backing present; Answer framing could include more professional caveats",
+    "faith_alignment_score": 0.475,
+    "confidence_breakdown": {
+      "mapping_strength": 0.404,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.475,
+      "causal_avg": 0.2349,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

@@ -1,0 +1,691 @@
+{
+  "timestamp": "2026-02-28T19:07:32.707296+00:00",
+  "query": "What food items should I use to cure fever?",
+  "entities": {
+    "disease": "fever",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_chemical_compounds_for_treatment",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 3,
+        "action": "find_ingredients_containing_chemical_compounds",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "find_food_items_containing_ingredients",
+        "target": "Ingredient"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "ChemicalCompound",
+      "Ingredient"
+    ]
+  },
+  "paths_used": 281,
+  "causal_scores": {
+    "total_paths": 281,
+    "avg_causal_score": 0.5754,
+    "max_causal_score": 1.0,
+    "min_causal_score": 0.4083,
+    "strong_paths": 28,
+    "moderate_paths": 4,
+    "weak_paths": 249,
+    "avg_mechanism_score": 0.5516,
+    "avg_path_depth": 4.0
+  },
+  "causal_paths_count": 281,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Iveegam EN",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Follitropin-Beta for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Doxil",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Coagulation Factor IX (Recombinant) for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Amphotericin B Liposome for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Amevive (alefacept)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Kepivance",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Erythromycin Ethylsuccinate Tablets (400 mg)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Reteplase Recombinant for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 1.0,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.895,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present"
+  },
+  "a0_answer_length": 2810,
+  "af_answer_length": 2107,
+  "final_answer": "Fever is a common condition that can be caused by various factors, including infections, inflammation, or other medical conditions. While there are several treatments available to help manage fever, it's essential to consult a healthcare professional for proper diagnosis and treatment.\n\nSome traditional and natural ingredients, such as Honey, have been suggested to have potential benefits in alleviating fever symptoms. Honey contains various chemical compounds, including phenolic acid, Vitamin D, glucose, and sucrose, which may have anti-inflammatory and antioxidant properties. However, it's crucial to note that the link between Honey and these compounds is not fully established, and the effectiveness of Honey in treating fever is largely anecdotal.\n\nAccording to a Hadith, \"Fever is from the heat of the (Hell) Fire; so, cool it with water.\" This suggests that using water or other cooling agents, such as Honey, may help alleviate fever symptoms. However, it's essential to approach this information with respect and consider it as part of a broader, inclusive perspective on health and wellness.\n\nThe uncertainty level and mapping strength for each link between Honey and its chemical compounds are as follows:\n- The link between Honey and Phenol is weak.\n- The link between Honey and Vitamin D is identical.\n- The link between Honey and Glucose is identical.\n- The link between Honey and Sucrose is identical.\n\nIt's essential to consult a healthcare professional before using any ingredient or drug to treat fever, as the effectiveness and safety of these treatments may vary depending on individual circumstances. Additionally, it's crucial to follow proper dosage and administration guidelines to avoid any potential adverse effects.\n\nIn conclusion, while Honey may have potential benefits in alleviating fever symptoms, it's essential to approach this information with caution and consult a healthcare professional before using any treatment. A healthcare professional can provide personalized guidance and recommend evidence-based treatments to help manage fever and underlying conditions.",
+  "confidence_score": 0.59,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "fever",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_chemical_compounds_for_treatment",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 3,
+        "action": "find_ingredients_containing_chemical_compounds",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "find_food_items_containing_ingredients",
+        "target": "Ingredient"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "Vitamin D",
+        "drug_compound": "Vitamin D",
+        "drug": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(Vitamin D)",
+          "DrugCompound(Vitamin D)",
+          "Drug(Ascorbic Acid and B Complex Vitamins (Vial 1))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Follitropin-Beta for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Follitropin-Beta for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Doxil",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Doxil)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Coagulation Factor IX (Recombinant) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Coagulation Factor IX (Recombinant) for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Amphotericin B Liposome for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Amphotericin B Liposome for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Amevive (alefacept)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Amevive (alefacept))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Kepivance",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Kepivance)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Erythromycin Ethylsuccinate Tablets (400 mg)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Erythromycin Ethylsuccinate Tablets (400 mg))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Reteplase Recombinant for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Reteplase Recombinant for Injection)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "Vitamin D",
+        "drug_compound": "Vitamin D",
+        "drug": "Ascorbic Acid and B Complex Vitamins (Vial 1)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(Vitamin D)",
+          "DrugCompound(Vitamin D)",
+          "Drug(Ascorbic Acid and B Complex Vitamins (Vial 1))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "glucose",
+        "drug_compound": "Glucose",
+        "drug": "Iveegam EN",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(glucose)",
+          "DrugCompound(Glucose)",
+          "Drug(Iveegam EN)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Follitropin-Beta for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Follitropin-Beta for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Doxil",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Doxil)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Coagulation Factor IX (Recombinant) for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Coagulation Factor IX (Recombinant) for Injection)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 281,
+      "avg_causal_score": 0.5754,
+      "max_causal_score": 1.0,
+      "min_causal_score": 0.4083,
+      "strong_paths": 28,
+      "moderate_paths": 4,
+      "weak_paths": 249,
+      "avg_mechanism_score": 0.5516,
+      "avg_path_depth": 4.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present",
+    "faith_alignment_score": 0.895,
+    "confidence_breakdown": {
+      "mapping_strength": 0.42,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.895,
+      "causal_avg": 0.5754,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

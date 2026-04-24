@@ -1,0 +1,175 @@
+{
+  "timestamp": "2026-03-12T12:28:17.182414+00:00",
+  "query": "Tell me some drugs which I should use instead of using henna.",
+  "entities": {
+    "disease": null,
+    "ingredient": "henna",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find alternatives",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "trace forward to drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "filter by similar use",
+        "target": "Drug"
+      },
+      {
+        "step": 4,
+        "action": "rank by efficacy and safety",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Ingredient",
+      "Drug"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.325,
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 984,
+  "af_answer_length": 722,
+  "final_answer": "Unfortunately, the provided information does not contain sufficient details to recommend alternative drugs to henna. Henna is typically used for its natural dye properties and has been mentioned in some prophetic remedies for its potential health benefits. However, without specific Hadith references or a clear understanding of the intended use, it's challenging to offer a substitute.\n\nFor any health concerns or questions about using henna or finding alternative treatments, it's always best to consult a healthcare professional who can provide personalized advice based on your specific needs and health status. They can help you make informed decisions about your health and recommend suitable alternatives if needed.",
+  "confidence_score": 0.17,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": null,
+      "ingredient": "henna",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "find alternatives",
+        "target": "Ingredient"
+      },
+      {
+        "step": 2,
+        "action": "trace forward to drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 3,
+        "action": "filter by similar use",
+        "target": "Drug"
+      },
+      {
+        "step": 4,
+        "action": "rank by efficacy and safety",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.325,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.325,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "coreference_resolution",
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

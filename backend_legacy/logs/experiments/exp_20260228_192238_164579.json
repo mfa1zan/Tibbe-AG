@@ -1,0 +1,712 @@
+{
+  "timestamp": "2026-02-28T19:22:38.164518+00:00",
+  "query": "how can I treat fever with natural cures?",
+  "entities": {
+    "disease": "fever",
+    "ingredient": "Cress",
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredient_for_disease_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "investigate_ingredient_efficacy",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "explore_chemical_compounds_in_ingredient",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace_ingredient_to_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "evaluate_drug_efficacy_for_disease",
+        "target": "Drug"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Disease",
+      "Ingredient",
+      "ChemicalCompound",
+      "Drug"
+    ]
+  },
+  "paths_used": 1480,
+  "causal_scores": {
+    "total_paths": 1480,
+    "avg_causal_score": 0.5354,
+    "max_causal_score": 1.0,
+    "min_causal_score": 0.4019,
+    "strong_paths": 29,
+    "moderate_paths": 9,
+    "weak_paths": 1442,
+    "avg_mechanism_score": 0.51,
+    "avg_path_depth": 4.0
+  },
+  "causal_paths_count": 1480,
+  "dosage_validation": {
+    "comparisons": [
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Kogenate FS",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Acyclovir Sodium Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Kepivance",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Doxil",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Follitropin-Beta for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Cytomegalovirus Immune Globulin IV (Human)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "BeneFIX (coagulation factor IX)",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Basiliximab for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Amphotericin B Liposome for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      },
+      {
+        "ingredient": {
+          "name": "Honey",
+          "traditional_dosage": null,
+          "preparation_method": null,
+          "dosage_available": false
+        },
+        "drug": {
+          "name": "Peginterferon Alpha-2b for Injection",
+          "standard_dosage": null,
+          "contraindications": null,
+          "side_effects": null,
+          "dosage_available": false
+        },
+        "alignment_score": 0.3,
+        "alignment_notes": [
+          "Traditional dosage information not available in KG — interpret with caution",
+          "Drug dosage metadata not available in KG"
+        ]
+      }
+    ],
+    "overall_alignment_score": 0.3,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": true,
+    "hadith_count": 1,
+    "hadith_score": 0.7,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": true,
+    "scientific_backing_score": 1.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.82,
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present"
+  },
+  "a0_answer_length": 800,
+  "af_answer_length": 976,
+  "final_answer": "To treat fever with natural cures, one option is honey, which contains various compounds such as calcium. Honey has been linked to several drugs, including those with the compound Dicalcium phosphate, although the mapping strength is WEAK. Additionally, honey has been associated with drugs like Cyanocobalamin Injection and Vitamin B12 (cyanocobalamin), with mapping strengths of WEAK and LIKELY, respectively. \n\nAccording to Hadith references, the Prophet Muhammad (peace be upon him) advised cooling fever with water or Zamzam water, as stated in Bukhari: 3261 and 3263. It is essential to consult a healthcare professional before using any natural remedies, especially if you have any underlying medical conditions or are taking prescription medications, to ensure safe and effective treatment. \n\nPlease consult a healthcare professional before using any natural remedies to treat fever, as they can help determine the best course of treatment for your specific condition.",
+  "confidence_score": 0.56,
+  "evidence_strength": "strong",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": true,
+    "caution_notes": [
+      "Some biochemical mappings are weak; interpret these links as tentative rather than definitive."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "fever",
+      "ingredient": "Cress",
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "identify_disease_treatment",
+        "target": "Disease"
+      },
+      {
+        "step": 2,
+        "action": "find_ingredient_for_disease_treatment",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "investigate_ingredient_efficacy",
+        "target": "Ingredient"
+      },
+      {
+        "step": 4,
+        "action": "explore_chemical_compounds_in_ingredient",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "trace_ingredient_to_drugs",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "evaluate_drug_efficacy_for_disease",
+        "target": "Drug"
+      }
+    ],
+    "retrieved_paths": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Kepivance",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Kepivance)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Doxil",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Doxil)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Follitropin-Beta for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Follitropin-Beta for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Cytomegalovirus Immune Globulin IV (Human)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Cytomegalovirus Immune Globulin IV (Human))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "BeneFIX (coagulation factor IX)",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(BeneFIX (coagulation factor IX))"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Basiliximab for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Basiliximab for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Amphotericin B Liposome for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Amphotericin B Liposome for Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Peginterferon Alpha-2b for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Peginterferon Alpha-2b for Injection)"
+        ]
+      }
+    ],
+    "causal_ranking": [
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "copper",
+        "drug_compound": "Copper",
+        "drug": "Kogenate FS",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(copper)",
+          "DrugCompound(Copper)",
+          "Drug(Kogenate FS)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sodium",
+        "drug_compound": "Sodium",
+        "drug": "Acyclovir Sodium Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sodium)",
+          "DrugCompound(Sodium)",
+          "Drug(Acyclovir Sodium Injection)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Kepivance",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Kepivance)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Doxil",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Doxil)"
+        ]
+      },
+      {
+        "disease": "Fever",
+        "ingredient": "Honey",
+        "compound": "sucrose",
+        "drug_compound": "Sucrose",
+        "drug": "Follitropin-Beta for Injection",
+        "mapping_strength_label": "IDENTICAL",
+        "mapping_strength": 1.0,
+        "mechanism_score": 1.0,
+        "path_depth_score": 1.0,
+        "causal_score": 1.0,
+        "hop_count": 4,
+        "is_hypothesis": false,
+        "causal_chain": [
+          "Disease(Fever)",
+          "Ingredient(Honey)",
+          "Compound(sucrose)",
+          "DrugCompound(Sucrose)",
+          "Drug(Follitropin-Beta for Injection)"
+        ]
+      }
+    ],
+    "causal_summary": {
+      "total_paths": 1480,
+      "avg_causal_score": 0.5354,
+      "max_causal_score": 1.0,
+      "min_causal_score": 0.4019,
+      "strong_paths": 29,
+      "moderate_paths": 9,
+      "weak_paths": 1442,
+      "avg_mechanism_score": 0.51,
+      "avg_path_depth": 4.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.3,
+      "has_dosage_data": false,
+      "comparison_count": 10
+    },
+    "faith_alignment_notes": "1 Hadith reference(s) found; Scientific compound-drug backing present",
+    "faith_alignment_score": 0.82,
+    "confidence_breakdown": {
+      "mapping_strength": 0.365,
+      "path_coverage": null,
+      "hadith_presence": 0.7,
+      "faith_alignment": 0.82,
+      "causal_avg": 0.5354,
+      "dosage_alignment": 0.3
+    },
+    "multi_hop_activated": false,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "general_check",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

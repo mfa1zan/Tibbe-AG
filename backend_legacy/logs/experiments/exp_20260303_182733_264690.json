@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-03-03T18:27:33.264495+00:00",
+  "query": "Explain the prophetic cure for Fever and also its chemical reasoning and modern drug relevance.",
+  "entities": {
+    "disease": "Fever",
+    "ingredient": null,
+    "drug": null
+  },
+  "rationale_plan": {
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "Identify Prophetic Cure",
+        "target": "Hadith"
+      },
+      {
+        "step": 2,
+        "action": "Extract Ingredients from Prophetic Cure",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "Analyze Chemical Composition of Ingredients",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "Link Chemical Compounds to Drug Chemical Compounds",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "Identify Modern Drugs Containing Relevant Drug Chemical Compounds",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "Investigate Efficacy of Identified Drugs for Fever",
+        "target": "Disease"
+      }
+    ],
+    "plan_source": "llm",
+    "relevant_node_types": [
+      "Hadith",
+      "Ingredient",
+      "ChemicalCompound",
+      "DrugChemicalCompound",
+      "Drug",
+      "Disease"
+    ]
+  },
+  "paths_used": 0,
+  "causal_scores": {
+    "total_paths": 0,
+    "avg_causal_score": 0.0,
+    "max_causal_score": 0.0,
+    "min_causal_score": 0.0,
+    "strong_paths": 0,
+    "moderate_paths": 0,
+    "weak_paths": 0,
+    "avg_mechanism_score": 0.0,
+    "avg_path_depth": 0.0
+  },
+  "causal_paths_count": 0,
+  "dosage_validation": {
+    "comparisons": [],
+    "overall_alignment_score": 0.0,
+    "has_dosage_data": false
+  },
+  "faith_alignment": {
+    "hadith_present": false,
+    "hadith_count": 0,
+    "hadith_score": 0.0,
+    "correct_framing": true,
+    "framing_score": 0.7,
+    "scientific_backing": false,
+    "scientific_backing_score": 0.0,
+    "miracle_claims_found": false,
+    "no_miracle_score": 1.0,
+    "faith_alignment_score": 0.325,
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing"
+  },
+  "a0_answer_length": 124,
+  "af_answer_length": 1504,
+  "final_answer": "Honey is sometimes considered a potential remedy for fever, although the evidence is limited and more research is needed to confirm its effectiveness. Honey contains various compounds, including fructose, glucose, and polyphenols, which may have antimicrobial and anti-inflammatory properties. \n\nSome studies suggest that these compounds may help reduce fever, but the current evidence is largely anecdotal and not conclusive. Additionally, honey's effectiveness in treating fever may depend on various factors, such as the type of honey, the severity of the fever, and the individual's overall health.\n\nIt's essential to note that while honey may have potential health benefits, it should not be used as a replacement for medical treatment. If you have a fever, it's crucial to consult with a healthcare professional for proper diagnosis and treatment. They can recommend the best course of action, which may include medication, rest, and hydration.\n\nIn terms of chemical reasoning, the compounds present in honey, such as fructose and glucose, are also found in some medications, like Eraxis and Iveegam EN. However, the relationship between these compounds and their potential to treat fever is still being researched and is not fully understood.\n\nIn summary, while honey may have some potential benefits in reducing fever, the evidence is limited, and more research is needed to confirm its effectiveness. It's always best to consult with a healthcare professional for proper diagnosis and treatment.",
+  "confidence_score": 0.17,
+  "evidence_strength": "weak",
+  "evaluation_metrics": null,
+  "safety": {
+    "caution_flag": false,
+    "caution_notes": [
+      "No clear drug equivalent was identified in the current graph context, indicating limited biochemical mapping.",
+      "Graph path coverage is limited for this query, so confidence in mechanistic conclusions is reduced."
+    ]
+  },
+  "reasoning_trace": {
+    "entity_detected": {
+      "disease": "Fever",
+      "ingredient": null,
+      "drug": null
+    },
+    "rationale_plan": [
+      {
+        "step": 1,
+        "action": "Identify Prophetic Cure",
+        "target": "Hadith"
+      },
+      {
+        "step": 2,
+        "action": "Extract Ingredients from Prophetic Cure",
+        "target": "Ingredient"
+      },
+      {
+        "step": 3,
+        "action": "Analyze Chemical Composition of Ingredients",
+        "target": "ChemicalCompound"
+      },
+      {
+        "step": 4,
+        "action": "Link Chemical Compounds to Drug Chemical Compounds",
+        "target": "DrugChemicalCompound"
+      },
+      {
+        "step": 5,
+        "action": "Identify Modern Drugs Containing Relevant Drug Chemical Compounds",
+        "target": "Drug"
+      },
+      {
+        "step": 6,
+        "action": "Investigate Efficacy of Identified Drugs for Fever",
+        "target": "Disease"
+      }
+    ],
+    "retrieved_paths": [],
+    "causal_ranking": [],
+    "causal_summary": {
+      "total_paths": 0,
+      "avg_causal_score": 0.0,
+      "max_causal_score": 0.0,
+      "min_causal_score": 0.0,
+      "strong_paths": 0,
+      "moderate_paths": 0,
+      "weak_paths": 0,
+      "avg_mechanism_score": 0.0,
+      "avg_path_depth": 0.0
+    },
+    "dosage_validation": {
+      "overall_alignment_score": 0.0,
+      "has_dosage_data": false,
+      "comparison_count": 0
+    },
+    "faith_alignment_notes": "No Hadith references present; Limited scientific compound-drug backing",
+    "faith_alignment_score": 0.325,
+    "confidence_breakdown": {
+      "mapping_strength": null,
+      "path_coverage": null,
+      "hadith_presence": 0.0,
+      "faith_alignment": 0.325,
+      "causal_avg": 0.0,
+      "dosage_alignment": 0.0
+    },
+    "multi_hop_activated": true,
+    "evaluation_metrics": null,
+    "pipeline_stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  },
+  "pipeline_metadata": {
+    "stages": [
+      "intent_model_classification",
+      "entity_extraction",
+      "rationale_plan",
+      "intent_routing",
+      "graph_retrieval",
+      "multi_hop_discovery",
+      "reasoning_builder",
+      "causal_reasoner",
+      "dosage_validator",
+      "a0_generation",
+      "af_validation",
+      "faith_alignment",
+      "safety_scorer",
+      "experiment_logger"
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+.welcome-screen {
+  @apply flex h-full flex-col items-center justify-center;
+}
+
+.welcome-content {
+  @apply flex flex-col items-center gap-3 px-4 text-center;
+  animation: welcomeFadeIn 0.5s ease-out;
+}
+
+.welcome-icon {
+  @apply mb-2 flex items-center justify-center;
+  color: var(--primary-color);
+}
+
+.welcome-heading {
+  @apply text-2xl font-semibold tracking-tight text-slate-800 dark:text-slate-100;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.welcome-subtext {
+  @apply text-sm text-slate-500 dark:text-slate-400;
+  max-width: 400px;
+}
+
+.welcome-input-wrapper {
+  @apply w-full max-w-2xl px-4 pt-8;
+}
+
+/* Override the sticky footer behavior when inside the welcome screen */
+.welcome-input-wrapper .chat-input-footer {
+  position: relative;
+  border-top: none;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.welcome-input-wrapper .chat-input-footer.dark,
+:is(.dark) .welcome-input-wrapper .chat-input-footer {
+  background: transparent;
+}
+
+@keyframes welcomeFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

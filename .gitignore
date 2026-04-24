@@ -32,4 +32,6 @@ __pycache__/
 # editor/ide
 .vscode/
 .idea/
-backend/logs/experiments
+backend/logs/experiments/
+backend/.env
+backend_legacy/.env
