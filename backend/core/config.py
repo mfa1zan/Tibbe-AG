@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # ── Logging ──
     log_level: str = "INFO"
+    debug_trace: bool = False
 
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", ".env"),

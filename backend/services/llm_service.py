@@ -20,6 +20,33 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
 
+def _should_log_llm_trace() -> bool:
+    """Return True when detailed LLM request/response logging is enabled."""
+    settings = get_settings()
+    return settings.debug_trace or logger.isEnabledFor(logging.DEBUG)
+
+
+def _log_llm_messages(model: str, messages: list[dict[str, str]], *, temperature: float, max_tokens: int) -> None:
+    """Log the exact request payload sent to the LLM provider."""
+    logger.info(
+        "LLM request [%s] temperature=%.2f max_tokens=%d messages=%d",
+        model,
+        temperature,
+        max_tokens,
+        len(messages),
+    )
+    for index, message in enumerate(messages, start=1):
+        role = message.get("role", "unknown")
+        content = message.get("content", "")
+        logger.info(
+            "LLM request [%s] message %d role=%s\n%s",
+            model,
+            index,
+            role,
+            content,
+        )
+
+
 def _call_llm(
     messages: list[dict[str, str]],
     *,
@@ -33,6 +60,9 @@ def _call_llm(
     """
     settings = get_settings()
     use_model = model or settings.groq_model
+
+    if _should_log_llm_trace():
+        _log_llm_messages(use_model, messages, temperature=temperature, max_tokens=max_tokens)
 
     t0 = time.perf_counter()
     try:
@@ -57,6 +87,8 @@ def _call_llm(
         content = data["choices"][0]["message"]["content"]
 
         logger.info("LLM [%s] → %d chars (%.0fms)", use_model, len(content), duration_ms)
+        if _should_log_llm_trace():
+            logger.info("LLM response [%s]\n%s", use_model, content)
         return {
             "content": content,
             "model": use_model,

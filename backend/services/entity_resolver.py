@@ -185,14 +185,8 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
                 resolution_log.append(f"{entity_type}='{llm_value}' (LLM only, no DB match)")
                 continue
 
-        # No LLM entity — try fuzzy matching the full query
-        matched, score = _fuzzy_match(query, candidates)
-        if matched and score >= FUZZY_THRESHOLD:
-            final[entity_type] = matched
-            resolution_log.append(f"{entity_type}='{matched}' (fuzzy fallback, score={score:.2f})")
-        else:
-            final[entity_type] = None
-            resolution_log.append(f"{entity_type}=None")
+        final[entity_type] = None
+        resolution_log.append(f"{entity_type}=None")
 
     duration_ms = round((time.perf_counter() - t0) * 1000, 1)
     logger.info("Entity resolution (%.0fms): %s", duration_ms, " | ".join(resolution_log))
@@ -250,6 +244,7 @@ def _extract_with_entity_context(
                 "- Match the user's mention to the CLOSEST known entity name above\n"
                 "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
                 "- If no entity of a type is mentioned, use null\n"
+                "- CRITICAL: Your entire response must be only the JSON object. No notes, no explanations, nothing else.\n"
                 "- Reply ONLY with valid JSON, no extra text\n\n"
                 'Example: {"disease": null, "ingredient": "Heena", "drug": null}'
             ),
@@ -268,10 +263,10 @@ def _extract_with_entity_context(
     import json
     content = result.get("content", "")
     try:
-        cleaned = content.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        parsed = json.loads(cleaned)
+        match = re.search(r'\{[^{}]+\}', content)
+        if match is None:
+            raise ValueError("No JSON object found in entity extraction response")
+        parsed = json.loads(match.group(0))
         return {
             "disease": _safe_value(parsed.get("disease")),
             "ingredient": _safe_value(parsed.get("ingredient")),

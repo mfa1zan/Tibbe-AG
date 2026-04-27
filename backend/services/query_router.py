@@ -8,8 +8,12 @@ NO dynamic Cypher generation.  Every path leads to a predefined query.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import re
+
+from backend.services import llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +82,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
-def classify_intent(user_query: str, entities: dict[str, str | None] | None = None) -> str:
+def classify_intent_regex(user_query: str, entities: dict[str, str | None] | None = None) -> str:
     """Classify user intent using keyword matching. Returns an intent string.
 
     Substitution queries ("drugs instead of X") take priority over other intents.
@@ -104,6 +108,84 @@ def classify_intent(user_query: str, entities: dict[str, str | None] | None = No
         if pattern.search(user_query):
             return intent
     return INTENT_GENERAL
+
+
+async def classify_intent_llm(user_query: str, entities: dict[str, str | None] | None = None) -> str:
+    """Classify user intent with an LLM, then fall back to regex if needed."""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an intent classifier for a Prophetic medicine knowledge graph chatbot.\n"
+                "Given a user query and the detected entities, return the single best intent as JSON.\n\n"
+                "INTENT OPTIONS:\n"
+                "- disease_treatment: user asks what treats/cures a disease\n"
+                "- disease_full_chain: user wants the full chain for a disease\n"
+                "- disease_drug: user asks which drugs treat a disease\n"
+                "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
+                "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
+                "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
+                "- drug_book: user wants drug reference/source info\n"
+                "- hadith_info: user asks for hadith or prophetic references\n"
+                "- drug_count: user asks how many drugs are linked to an ingredient\n"
+                "- drug_substitute: user wants natural alternatives to a drug\n"
+                "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
+                "- general: none of the above\n\n"
+                "KEY RULE: If the query mentions an ingredient (like honey, black seed, ginger) and asks what it cures/treats/helps, ALWAYS use ingredient_treatment — never disease_treatment.\n\n"
+                "If the user explicitly says drug(s) or medicine(s) and asks which one treats/cures a disease, ALWAYS return disease_drug — never disease_treatment.\n\n"
+                'Reply ONLY with valid JSON: {"intent": "<intent_name>", "reason": "<one line why>"}'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Query: {user_query}\n"
+                f"Entities: {json.dumps(entities or {}, ensure_ascii=True, sort_keys=True)}"
+            ),
+        },
+    ]
+
+    try:
+        result = await asyncio.to_thread(
+            llm_service._call_llm,
+            messages,
+            model="llama-3.1-8b-instant",
+            temperature=0.0,
+            max_tokens=120,
+        )
+        content = result.get("content", "")
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(cleaned)
+        intent = parsed.get("intent")
+        reason = parsed.get("reason", "")
+
+        if isinstance(intent, str):
+            normalized_intent = intent.strip()
+            valid_intents = {
+                INTENT_DISEASE_TREATMENT,
+                INTENT_DISEASE_FULL_CHAIN,
+                INTENT_DISEASE_DRUG,
+                INTENT_INGREDIENT_TREATMENT,
+                INTENT_INGREDIENT_COMPOUNDS,
+                INTENT_INGREDIENT_DRUG_MAP,
+                INTENT_DRUG_BOOK,
+                INTENT_HADITH_INFO,
+                INTENT_DRUG_COUNT,
+                INTENT_DRUG_SUBSTITUTE,
+                INTENT_INGREDIENT_SUBSTITUTE,
+                INTENT_GENERAL,
+            }
+            if normalized_intent in valid_intents:
+                logger.info("Intent LLM classified '%s' (%s)", normalized_intent, reason)
+                return normalized_intent
+
+        logger.warning("Intent LLM returned invalid intent: %s", content)
+    except Exception:
+        logger.exception("Intent LLM classification failed; falling back to regex")
+
+    return classify_intent_regex(user_query, entities)
 
 
 def route_query(

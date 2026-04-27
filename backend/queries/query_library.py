@@ -40,7 +40,6 @@ RETURN
   i.name AS ingredient,
   h.name AS hadith_text,
   r.reference AS reference
-LIMIT 20
 """,
 )
 
@@ -61,7 +60,6 @@ RETURN
   r.quantity AS quantity,
   r.unit AS unit,
   r.food_part AS food_part
-LIMIT 50
 """,
 )
 
@@ -84,7 +82,6 @@ RETURN
   type(r2) AS mapping_strength,
   r1.source AS ingredient_source,
   r3.source AS drug_source
-LIMIT 30
 """,
 )
 
@@ -101,9 +98,7 @@ WHERE toLower(d.name) = toLower($drug_name)
 MATCH (d)-[:IS_IN_BOOK]->(b:Book)
 RETURN
   b.name AS book_name,
-  b.link AS download_link
-LIMIT 5
-""",
+  b.link AS download_link""",
 )
 
 # ── D2. Drug via Source → Book (indirect) ────────────────────────────────────
@@ -122,7 +117,6 @@ MATCH (d:Drug)-[r:CONTAINS]->(dcc)
 MATCH (b:Book)
 WHERE toLower(b.name) = toLower(r.source)
 RETURN DISTINCT b.name AS book_name, b.link AS link
-LIMIT 10
 """,
 )
 
@@ -150,7 +144,6 @@ RETURN
   r1.source AS ingredient_source,
   r3.source AS drug_source,
   b.link AS book_link
-LIMIT 25
 """,
 )
 
@@ -172,7 +165,6 @@ RETURN
   h.name AS hadith,
   r.reference AS reference,
   b.link AS book_link
-LIMIT 10
 """,
 )
 
@@ -200,7 +192,6 @@ ADVANCED_FILTERING = CypherQuery(
     cypher="""\
 MATCH (c:ChemicalCompound)-[r:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO]->(dcc)
 RETURN c.name, dcc.name, type(r)
-LIMIT 50
 """,
 )
 
@@ -239,7 +230,6 @@ RETURN
     d.name AS disease,
     h.name AS hadith_text,
     r.reference AS reference
-LIMIT 20
 """,
 )
 

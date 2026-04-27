@@ -8,6 +8,7 @@ Pipeline flow:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -166,10 +167,10 @@ def _compose_multi_segment_answer(
     return final_answer, {"answer": final_answer, "model": "composed-multi-segment", "duration_ms": 0}
 
 
-def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+async def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
     """Resolve entities, route intent, and execute one graph query for a segment."""
     entities = resolve_entities(segment, history=history)
-    intent = query_router.classify_intent(segment, entities)
+    intent = await query_router.classify_intent_llm(segment, entities)
     query_id, params, resolved_intent = query_router.route_query(intent, entities)
 
     if query_id is None:
@@ -228,7 +229,9 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     if len(segments) > 1:
         logger.info("Detected %d query segments: %s", len(segments), segments)
 
-        segment_results = [_run_graph_retrieval_for_segment(segment, history=trimmed_history) for segment in segments]
+        segment_results = await asyncio.gather(
+            *[_run_graph_retrieval_for_segment(segment, history=trimmed_history) for segment in segments]
+        )
         routed_segments = [res for res in segment_results if res.get("query_id")]
 
         # Only switch to multi-query mode when at least 2 segments were routed.
@@ -326,7 +329,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
                 entities.get("disease"), entities.get("ingredient"), entities.get("drug"))
 
     # ── Step 2: Classify intent (keyword-based, entity-aware) ────────────
-    intent = query_router.classify_intent(query, entities)
+    intent = await query_router.classify_intent_llm(query, entities)
     logger.info("Intent: %s", intent)
 
     # ── Step 3: Route to predefined query ────────────────────────────────
