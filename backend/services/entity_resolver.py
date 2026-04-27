@@ -42,7 +42,7 @@ def _normalize(text: str) -> str:
 
 
 def _fetch_all_entity_names() -> dict[str, list[str]]:
-    """Fetch all disease, ingredient, and drug names from Neo4j."""
+    """Fetch all disease, ingredient, drug, and chemical compound names from Neo4j."""
     global _entity_cache, _cache_timestamp
 
     now = time.time()
@@ -50,7 +50,7 @@ def _fetch_all_entity_names() -> dict[str, list[str]]:
         return _entity_cache
 
     driver = _get_driver()
-    result: dict[str, list[str]] = {"Disease": [], "Ingredient": [], "Drug": []}
+    result: dict[str, list[str]] = {"Disease": [], "Ingredient": [], "Drug": [], "ChemicalCompound": []}
 
     def _run_name_query(label: str) -> list:
         with driver.session() as session:
@@ -160,8 +160,8 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
     # ── Step 1: LLM extraction with entity list context ──────────────────
     llm_entities = _extract_with_entity_context(query, entity_names, history=history)
     logger.info(
-        "LLM entities: disease=%s ingredient=%s drug=%s",
-        llm_entities.get("disease"), llm_entities.get("ingredient"), llm_entities.get("drug"),
+        "LLM entities: disease=%s ingredient=%s drug=%s compound=%s",
+        llm_entities.get("disease"), llm_entities.get("ingredient"), llm_entities.get("drug"), llm_entities.get("compound"),
     )
 
     # ── Step 2: Fuzzy-match each entity against DB names ─────────────────
@@ -188,6 +188,15 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
         final[entity_type] = None
         resolution_log.append(f"{entity_type}=None")
 
+    # ── Compound: no fuzzy matching — use LLM value directly ──────────────
+    compound_value = llm_entities.get("compound")
+    if compound_value:
+        final["compound"] = compound_value
+        resolution_log.append(f"compound='{compound_value}' (LLM only, direct extraction)")
+    else:
+        final["compound"] = None
+        resolution_log.append("compound=None")
+
     duration_ms = round((time.perf_counter() - t0) * 1000, 1)
     logger.info("Entity resolution (%.0fms): %s", duration_ms, " | ".join(resolution_log))
 
@@ -195,6 +204,7 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
         "disease": final.get("disease"),
         "ingredient": final.get("ingredient"),
         "drug": final.get("drug"),
+        "compound": final.get("compound"),
         "_resolution_log": resolution_log,
         "_duration_ms": duration_ms,
     }
@@ -244,9 +254,10 @@ def _extract_with_entity_context(
                 "- Match the user's mention to the CLOSEST known entity name above\n"
                 "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
                 "- If no entity of a type is mentioned, use null\n"
+                "- compound: if the user mentions any chemical compound, nutrient, mineral, or vitamin by name (e.g. potassium, calcium, vitamin C, glucose), extract it exactly as written — do not try to match against a list\n"
                 "- CRITICAL: Your entire response must be only the JSON object. No notes, no explanations, nothing else.\n"
                 "- Reply ONLY with valid JSON, no extra text\n\n"
-                'Example: {"disease": null, "ingredient": "Heena", "drug": null}'
+                'Example: {"disease": null, "ingredient": "Heena", "drug": null, "compound": null}'
             ),
         },
         *normalized_history,
@@ -271,10 +282,11 @@ def _extract_with_entity_context(
             "disease": _safe_value(parsed.get("disease")),
             "ingredient": _safe_value(parsed.get("ingredient")),
             "drug": _safe_value(parsed.get("drug")),
+            "compound": _safe_value(parsed.get("compound")),
         }
     except Exception:
         logger.warning("Entity extraction parse failed: %s", content[:200])
-        return {"disease": None, "ingredient": None, "drug": None}
+        return {"disease": None, "ingredient": None, "drug": None, "compound": None}
 
 
 def _safe_value(val: Any) -> str | None:

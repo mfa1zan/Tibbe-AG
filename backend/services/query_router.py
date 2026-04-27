@@ -30,6 +30,7 @@ INTENT_HADITH_INFO = "hadith_info"
 INTENT_DRUG_COUNT = "drug_count"
 INTENT_DRUG_SUBSTITUTE = "drug_substitute"
 INTENT_INGREDIENT_SUBSTITUTE = "ingredient_substitute"
+INTENT_COMPOUND_SEARCH = "compound_search"
 INTENT_GENERAL = "general"
 
 # ── Keyword patterns (compiled once) ─────────────────────────────────────────
@@ -125,6 +126,7 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
                 "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
                 "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
                 "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
+                "- compound_search: user asks which ingredient/food contains a specific chemical compound or nutrient\n"
                 "- drug_book: user wants drug reference/source info\n"
                 "- hadith_info: user asks for hadith or prophetic references\n"
                 "- drug_count: user asks how many drugs are linked to an ingredient\n"
@@ -175,6 +177,7 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
                 INTENT_DRUG_COUNT,
                 INTENT_DRUG_SUBSTITUTE,
                 INTENT_INGREDIENT_SUBSTITUTE,
+                INTENT_COMPOUND_SEARCH,
                 INTENT_GENERAL,
             }
             if normalized_intent in valid_intents:
@@ -201,6 +204,7 @@ def route_query(
     disease = entities.get("disease")
     ingredient = entities.get("ingredient")
     drug = entities.get("drug")
+    compound = entities.get("compound")
 
     # ── Disease-centric intents ──────────────────────────────────────────
     if intent == INTENT_DISEASE_FULL_CHAIN and disease:
@@ -221,6 +225,10 @@ def route_query(
 
     if intent == INTENT_DRUG_COUNT and ingredient:
         return "I", {"ingredient_name": ingredient}, intent
+
+    # ── Compound-centric intents ────────────────────────────────────────
+    if intent == INTENT_COMPOUND_SEARCH and compound:
+        return "K", {"compound_name": compound}, intent
 
     # ── Drug-centric intents ─────────────────────────────────────────────
     if intent == INTENT_DISEASE_DRUG and disease:

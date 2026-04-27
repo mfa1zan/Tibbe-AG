@@ -234,6 +234,29 @@ RETURN
 )
 
 
+# ── K. Reverse Compound Lookup ──────────────────────────────────────────────
+
+COMPOUND_INGREDIENTS = CypherQuery(
+    id="K",
+    name="Compound → Ingredients Reverse Lookup",
+    description="Find ingredients/foods that contain a specific chemical compound",
+    param_keys=("compound_name",),
+    cypher="""\
+MATCH (cc:ChemicalCompound)
+WHERE toLower(cc.name) CONTAINS toLower($compound_name)
+MATCH (i:Ingredient)-[r:CONTAINS]->(cc)
+RETURN DISTINCT
+  cc.name AS chemical_compound,
+  i.name AS ingredient,
+  r.quantity AS quantity,
+  r.unit AS unit,
+  r.food_part AS food_part,
+  r.source AS source
+ORDER BY ingredient
+""",
+)
+
+
 # ── Lookup by ID ─────────────────────────────────────────────────────────────
 
 ALL_QUERIES: dict[str, CypherQuery] = {
@@ -250,5 +273,6 @@ ALL_QUERIES: dict[str, CypherQuery] = {
         ADVANCED_FILTERING,
         COUNT_DRUGS_FOR_INGREDIENT,
         INGREDIENT_DISEASE_TREATMENT,
+        COMPOUND_INGREDIENTS,
     ]
 }
