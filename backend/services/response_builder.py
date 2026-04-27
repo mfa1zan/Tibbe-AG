@@ -6,7 +6,14 @@ a response payload that satisfies the frontend Zod schema.
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
+
+from backend.core.config import get_settings
+from backend.utils.trace_logger import log_step
+
+logger = logging.getLogger(__name__)
 
 
 def build_response(
@@ -19,6 +26,8 @@ def build_response(
     entities: dict[str, str | None],
     judge_report: dict[str, Any] | None = None,
     debug: bool = False,
+    trace_id: str | None = None,
+    trace_context: Any | None = None,
 ) -> dict[str, Any]:
     """Build the response dict matching the frontend ``chatResponseSchema``.
 
@@ -74,6 +83,7 @@ def build_response(
         "reasoning_trace": reasoning_trace,
         "structured_fields": structured_fields or None,
         "pipeline_debug_trace": None,
+        "trace_id": trace_id,
     }
 
     # ── Debug trace (only when requested) ────────────────────────────────
@@ -93,11 +103,35 @@ def build_response(
             "judge_report": judge_report,
         }
 
+    if trace_context is not None:
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Response Builder",
+            details={
+                "final_answer_length": len(final_answer or ""),
+                "evidence_strength": evidence_strength,
+                "graph_paths_used": row_count,
+                "confidence_score": confidence_score,
+                "structured_fields_keys": list((structured_fields or {}).keys()),
+                "trace_id": trace_id,
+                "final_response_json": response,
+            },
+        )
+
+    settings = get_settings()
+    if settings.debug_trace:
+        logger.info(
+            "FINAL_RESPONSE_OBJECT\n%s",
+            json.dumps(response, ensure_ascii=True, indent=2, default=str),
+        )
+
     return response
 
 
 def build_error_response(
     error_msg: str = "Could not process your request. Please try again.",
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a safe fallback response when the pipeline fails."""
     return {
@@ -109,6 +143,7 @@ def build_error_response(
         "reasoning_trace": None,
         "structured_fields": None,
         "pipeline_debug_trace": None,
+        "trace_id": trace_id,
     }
 
 

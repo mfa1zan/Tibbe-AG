@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
-    logger.info("GraphRAG backend started (clean architecture)")
+    logger.info(
+        "GraphRAG backend started (clean architecture) | log_level=%s | DEBUG_TRACE=%s",
+        settings.log_level,
+        settings.debug_trace,
+    )
     yield
     close_driver()
     logger.info("GraphRAG backend shutdown")

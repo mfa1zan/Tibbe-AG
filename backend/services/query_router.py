@@ -9,7 +9,11 @@ NO dynamic Cypher generation.  Every path leads to a predefined query.
 from __future__ import annotations
 
 import logging
+import json
 import re
+
+from backend.core.config import get_settings
+from backend.utils.trace_logger import sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +110,65 @@ def classify_intent(user_query: str, entities: dict[str, str | None] | None = No
     return INTENT_GENERAL
 
 
+def classify_intent_with_reason(
+    user_query: str,
+    entities: dict[str, str | None] | None = None,
+) -> tuple[str, str]:
+    """Classify intent and return a brief reason for trace logging."""
+    settings = get_settings()
+
+    def _log(intent_val: str, reason_val: str) -> None:
+        if settings.debug_trace:
+            logger.info(
+                "INTENT_CLASSIFICATION_RUNTIME\n%s",
+                json.dumps(
+                    sanitize_payload(
+                        {
+                            "query_text": user_query,
+                            "matched_rule": reason_val,
+                            "final_intent": intent_val,
+                        }
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                    default=str,
+                ),
+            )
+
+    if _SUBSTITUTION_RE.search(user_query):
+        if entities:
+            ingredient = entities.get("ingredient")
+            drug = entities.get("drug")
+            if ingredient and not drug:
+                intent = INTENT_INGREDIENT_SUBSTITUTE
+                reason = "matched substitution regex + ingredient entity"
+                _log(intent, reason)
+                return intent, reason
+            if drug and not ingredient:
+                intent = INTENT_DRUG_SUBSTITUTE
+                reason = "matched substitution regex + drug entity"
+                _log(intent, reason)
+                return intent, reason
+        if re.search(r"\bdrug", user_query, re.I):
+            intent = INTENT_INGREDIENT_SUBSTITUTE
+            reason = "matched substitution regex + drug keyword fallback"
+            _log(intent, reason)
+            return intent, reason
+        intent = INTENT_INGREDIENT_SUBSTITUTE
+        reason = "matched substitution regex fallback"
+        _log(intent, reason)
+        return intent, reason
+
+    for pattern, intent in _PATTERNS:
+        if pattern.search(user_query):
+            reason = f"matched regex: {pattern.pattern}"
+            _log(intent, reason)
+            return intent, reason
+
+    _log(INTENT_GENERAL, "fallback: no regex matched")
+    return INTENT_GENERAL, "fallback: no regex matched"
+
+
 def route_query(
     intent: str,
     entities: dict[str, str | None],
@@ -171,3 +234,85 @@ def route_query(
 
     logger.warning("No entity found for intent '%s' — cannot route to a query", intent)
     return None, {}, intent
+
+
+def route_query_with_reason(
+    intent: str,
+    entities: dict[str, str | None],
+    user_query: str | None = None,
+) -> tuple[str | None, dict[str, str], str, str]:
+    """Resolve query route and include rationale for trace logging."""
+    settings = get_settings()
+    disease = entities.get("disease")
+    ingredient = entities.get("ingredient")
+    drug = entities.get("drug")
+
+    def _ret(
+        query_id: str | None,
+        params: dict[str, str],
+        resolved_intent: str,
+        reason: str,
+    ) -> tuple[str | None, dict[str, str], str, str]:
+        if settings.debug_trace:
+            logger.info(
+                "QUERY_ROUTING_RUNTIME\n%s",
+                json.dumps(
+                    sanitize_payload(
+                        {
+                            "query_text": user_query,
+                            "chosen_route": query_id,
+                            "params": params,
+                            "resolved_intent": resolved_intent,
+                            "why_selected": reason,
+                        }
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                    default=str,
+                ),
+            )
+        return query_id, params, resolved_intent, reason
+
+    if intent == INTENT_DISEASE_FULL_CHAIN and disease:
+        return _ret("E", {"disease_name": disease}, intent, "disease_full_chain intent + disease entity")
+
+    if intent == INTENT_DISEASE_TREATMENT and disease:
+        return _ret("A", {"disease_name": disease}, intent, "disease_treatment intent + disease entity")
+
+    if intent == INTENT_HADITH_INFO and disease:
+        return _ret("F", {"disease_name": disease}, intent, "hadith_info intent + disease entity")
+
+    if intent == INTENT_INGREDIENT_COMPOUNDS and ingredient:
+        return _ret("B", {"ingredient_name": ingredient}, intent, "ingredient_compounds intent + ingredient entity")
+
+    if intent == INTENT_INGREDIENT_DRUG_MAP and ingredient:
+        return _ret("C", {"ingredient_name": ingredient}, intent, "ingredient_drug_mapping intent + ingredient entity")
+
+    if intent == INTENT_DRUG_COUNT and ingredient:
+        return _ret("I", {"ingredient_name": ingredient}, intent, "drug_count intent + ingredient entity")
+
+    if intent == INTENT_DISEASE_DRUG and disease:
+        return _ret("E", {"disease_name": disease}, intent, "disease_drug intent + disease entity")
+
+    if intent == INTENT_DRUG_BOOK and drug:
+        return _ret("D1", {"drug_name": drug}, intent, "drug_book intent + drug entity")
+
+    if intent == INTENT_INGREDIENT_SUBSTITUTE and ingredient:
+        return _ret("C", {"ingredient_name": ingredient}, intent, "ingredient_substitute intent + ingredient entity")
+
+    if intent == INTENT_DRUG_SUBSTITUTE and drug:
+        return _ret("D1", {"drug_name": drug}, intent, "drug_substitute intent + drug entity")
+
+    if intent == INTENT_INGREDIENT_TREATMENT and ingredient:
+        return _ret("J", {"ingredient_name": ingredient}, intent, "ingredient_treatment intent + ingredient entity")
+
+    if disease:
+        return _ret("A", {"disease_name": disease}, INTENT_DISEASE_TREATMENT, "fallback disease entity → disease_treatment")
+
+    if ingredient:
+        return _ret("C", {"ingredient_name": ingredient}, INTENT_INGREDIENT_DRUG_MAP, "fallback ingredient entity → ingredient_drug_mapping")
+
+    if drug:
+        return _ret("D1", {"drug_name": drug}, INTENT_DRUG_BOOK, "fallback drug entity → drug_book")
+
+    return _ret(None, {}, intent, "no resolvable entity for routing")

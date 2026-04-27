@@ -10,6 +10,7 @@ then uses this list to:
 from __future__ import annotations
 
 import logging
+import json
 import re
 import time
 from difflib import SequenceMatcher, get_close_matches
@@ -21,6 +22,7 @@ from neo4j.exceptions import SessionExpired
 from backend.core.config import get_settings
 from backend.services import llm_service
 from backend.services.graph_service import _get_driver
+from backend.utils.trace_logger import log_model_call, log_step, sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +145,11 @@ def _fuzzy_match(query: str, candidates: list[str]) -> tuple[str | None, float]:
     return best_name, best_score
 
 
-def resolve_entities(query: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+def resolve_entities(
+    query: str,
+    history: list[dict[str, str]] | None = None,
+    trace_context: Any | None = None,
+) -> dict[str, Any]:
     """Hybrid entity resolution: LLM extraction → fuzzy matching against DB names.
 
     Steps:
@@ -158,7 +164,12 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
     entity_names = _fetch_all_entity_names()
 
     # ── Step 1: LLM extraction with entity list context ──────────────────
-    llm_entities = _extract_with_entity_context(query, entity_names, history=history)
+    llm_entities = _extract_with_entity_context(
+        query,
+        entity_names,
+        history=history,
+        trace_context=trace_context,
+    )
     logger.info(
         "LLM entities: disease=%s ingredient=%s drug=%s",
         llm_entities.get("disease"), llm_entities.get("ingredient"), llm_entities.get("drug"),
@@ -197,6 +208,23 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
     duration_ms = round((time.perf_counter() - t0) * 1000, 1)
     logger.info("Entity resolution (%.0fms): %s", duration_ms, " | ".join(resolution_log))
 
+    if trace_context is not None:
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Entity Resolution Completed",
+            details={
+                "input_query": query,
+                "resolved_entities": {
+                    "disease": final.get("disease"),
+                    "ingredient": final.get("ingredient"),
+                    "drug": final.get("drug"),
+                },
+                "resolution_log": resolution_log,
+                "duration_ms": duration_ms,
+            },
+        )
+
     return {
         "disease": final.get("disease"),
         "ingredient": final.get("ingredient"),
@@ -213,6 +241,7 @@ def _extract_with_entity_context(
     query: str,
     entity_names: dict[str, list[str]],
     history: list[dict[str, str]] | None = None,
+    trace_context: Any | None = None,
 ) -> dict[str, str | None]:
     """LLM entity extraction with known entity names in the prompt."""
     settings = get_settings()
@@ -236,49 +265,103 @@ def _extract_with_entity_context(
             continue
         normalized_history.append({"role": role, "content": content})
 
+    system_prompt = (
+        "You are an entity extraction engine for a Prophetic medicine (Tibb-e-Nabawi) knowledge graph.\n"
+        "Extract biomedical entities from the user's query.\n\n"
+        "KNOWN ENTITIES IN THE DATABASE:\n"
+        f"Diseases: {diseases_str}\n"
+        f"Ingredients: {ingredients_str}\n"
+        f"Drugs: {drugs_str}\n\n"
+        "RULES:\n"
+        "- Match the user's mention to the CLOSEST known entity name above\n"
+        "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
+        "- If no entity of a type is mentioned, use null\n"
+        "- Reply ONLY with valid JSON, no extra text\n\n"
+        'Example: {"disease": null, "ingredient": "Heena", "drug": null}'
+    )
+
     messages = [
         {
             "role": "system",
-            "content": (
-                "You are an entity extraction engine for a Prophetic medicine (Tibb-e-Nabawi) knowledge graph.\n"
-                "Extract biomedical entities from the user's query.\n\n"
-                "KNOWN ENTITIES IN THE DATABASE:\n"
-                f"Diseases: {diseases_str}\n"
-                f"Ingredients: {ingredients_str}\n"
-                f"Drugs: {drugs_str}\n\n"
-                "RULES:\n"
-                "- Match the user's mention to the CLOSEST known entity name above\n"
-                "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
-                "- If no entity of a type is mentioned, use null\n"
-                "- Reply ONLY with valid JSON, no extra text\n\n"
-                'Example: {"disease": null, "ingredient": "Heena", "drug": null}'
-            ),
+            "content": system_prompt,
         },
         *normalized_history,
         {"role": "user", "content": query},
     ]
 
+    model_name = settings.model_intent or settings.groq_model
     result = llm_service._call_llm(
         messages,
-        model=settings.model_intent or settings.groq_model,
+        model=model_name,
         temperature=0.0,
         max_tokens=200,
     )
 
-    import json
     content = result.get("content", "")
     try:
         cleaned = content.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         parsed = json.loads(cleaned)
-        return {
+        parsed_entities = {
             "disease": _safe_value(parsed.get("disease")),
             "ingredient": _safe_value(parsed.get("ingredient")),
             "drug": _safe_value(parsed.get("drug")),
         }
+        if settings.debug_trace:
+            logger.info(
+                "ENTITY_EXTRACTION_PARSED\n%s",
+                json.dumps(
+                    sanitize_payload(
+                        {
+                            "parsed_entities": parsed_entities,
+                            "duration_ms": result.get("duration_ms", 0),
+                        }
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                    default=str,
+                ),
+            )
+        if trace_context is not None:
+            log_model_call(
+                trace_context,
+                "Entity Extraction",
+                model=result.get("model") or model_name,
+                system_prompt=system_prompt,
+                messages=messages,
+                output=result.get("content", ""),
+                duration_ms=result.get("duration_ms", 0),
+                temperature=0.0,
+                max_tokens=200,
+                extra_details={
+                    "parsed_json": parsed,
+                    "parsed_entities": parsed_entities,
+                    "input_query": query,
+                    "history": normalized_history,
+                },
+            )
+        return parsed_entities
     except Exception:
         logger.warning("Entity extraction parse failed: %s", content[:200])
+        if trace_context is not None:
+            log_model_call(
+                trace_context,
+                "Entity Extraction",
+                model=result.get("model") or settings.groq_model,
+                system_prompt=system_prompt,
+                messages=messages,
+                output=result.get("content", ""),
+                duration_ms=result.get("duration_ms", 0),
+                temperature=0.0,
+                max_tokens=200,
+                extra_details={
+                    "parsed_json": None,
+                    "parse_error": "failed to parse model output into JSON",
+                    "input_query": query,
+                    "history": normalized_history,
+                },
+            )
         return {"disease": None, "ingredient": None, "drug": None}
 
 

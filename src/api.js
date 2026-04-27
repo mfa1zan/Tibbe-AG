@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { endFrontendTrace, logFrontendStep, startFrontendTrace } from './traceLogger';
 
 const chatResponseSchema = z.object({
   final_answer: z.string().min(1),
@@ -7,7 +8,8 @@ const chatResponseSchema = z.object({
   confidence_score: z.number().nullable().optional(),
   safety: z.record(z.unknown()).nullable().optional(),
   reasoning_trace: z.record(z.unknown()).nullable().optional(),
-  structured_fields: z.record(z.unknown()).nullable().optional()
+  structured_fields: z.record(z.unknown()).nullable().optional(),
+  trace_id: z.string().optional()
 });
 
 export const CHAT_API_ERROR_CODE = {
@@ -118,7 +120,21 @@ function sleep(ms, signal) {
 }
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { history = [], signal, strictMode = false } = options;
+  const { history = [], signal, strictMode = false, traceId } = options;
+
+  const trace = startFrontendTrace({
+    traceId,
+    query: message,
+    historyCount: history.length,
+    strictMode
+  });
+
+  logFrontendStep('[FRONTEND][STEP 2] POST /api/chat payload', {
+    query: message,
+    history_count: history.length,
+    strict_mode: strictMode,
+    trace_id: trace.traceId
+  });
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
@@ -131,7 +147,7 @@ export async function sendMessageToChatApi(message, options = {}) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: message, history, strict_mode: strictMode }),
+      body: JSON.stringify({ query: message, history, strict_mode: strictMode, trace_id: trace.traceId }),
       signal: combinedSignal
     });
   } catch (error) {
@@ -204,6 +220,13 @@ export async function sendMessageToChatApi(message, options = {}) {
 
   const data = parsedData.data;
 
+  endFrontendTrace(trace, {
+    reply_length: data.final_answer.length,
+    evidence_strength: typeof data.evidence_strength === 'string' ? data.evidence_strength : 'weak',
+    confidence_score: typeof data.confidence_score === 'number' ? data.confidence_score : null,
+    trace_id: data.trace_id || trace.traceId
+  });
+
   return {
     reply: data.final_answer,
     evidenceStrength: typeof data.evidence_strength === 'string' ? data.evidence_strength : 'weak',
@@ -214,7 +237,8 @@ export async function sendMessageToChatApi(message, options = {}) {
     structuredFields:
       data?.structured_fields && typeof data.structured_fields === 'object'
         ? data.structured_fields
-        : null
+        : null,
+    traceId: data.trace_id || trace.traceId
   };
 }
 

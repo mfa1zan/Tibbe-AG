@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi } from './api';
+import { createTraceId } from './traceLogger';
 import './App.css';
 
 const ChatPage = lazy(() => import('./pages/ChatPage'));
@@ -113,7 +114,8 @@ function sanitizeStoredMessages(rawValue) {
         entry.reasoningTrace && typeof entry.reasoningTrace === 'object' ? entry.reasoningTrace : null,
       safety: entry.safety && typeof entry.safety === 'object' ? entry.safety : null,
       structuredFields:
-        entry.structuredFields && typeof entry.structuredFields === 'object' ? entry.structuredFields : null
+        entry.structuredFields && typeof entry.structuredFields === 'object' ? entry.structuredFields : null,
+      traceId: typeof entry.traceId === 'string' ? entry.traceId : undefined
     }))
     .filter((entry) => entry.content.trim().length > 0);
 
@@ -322,6 +324,7 @@ function AppShell() {
 
       const optimisticMessage = createMessage('user', messageText.trim());
       const streamingBotMessageId = crypto.randomUUID();
+      const requestTraceId = createTraceId();
       const abortController = new AbortController();
       requestAbortRef.current = abortController;
 
@@ -370,10 +373,12 @@ function AppShell() {
           confidenceScore,
           safety,
           reasoningTrace,
-          structuredFields
+          structuredFields,
+          traceId
         } = await streamMessageToChatApi(messageText, {
           history: historyForApi,
           strictMode,
+          traceId: requestTraceId,
           signal: abortController.signal,
           onChunk: (chunk) => {
             setHasStreamedToken(true);
@@ -399,7 +404,8 @@ function AppShell() {
                   confidenceScore,
                   safety,
                   reasoningTrace,
-                  structuredFields
+                  structuredFields,
+                  traceId
                 }
               : item
           )

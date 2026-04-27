@@ -21,6 +21,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
     strict_mode: bool = Field(default=False, description="When true, LLM must only use DB evidence")
+    trace_id: str | None = Field(default=None, description="Client-provided trace ID for end-to-end debugging")
 
 
 # ── Response ─────────────────────────────────────────────────────────────────
@@ -37,3 +38,4 @@ class ChatResponse(BaseModel):
     reasoning_trace: dict | None = None
     structured_fields: dict | None = None
     pipeline_debug_trace: dict | None = None
+    trace_id: str | None = None

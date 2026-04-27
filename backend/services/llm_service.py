@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from backend.core.config import get_settings
+from backend.utils.trace_logger import log_model_call, sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,18 @@ def _call_llm(
     """
     settings = get_settings()
     use_model = model or settings.groq_model
+    provider_payload = {
+        "model": use_model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    if settings.debug_trace:
+        logger.info(
+            "LLM_PROVIDER_PAYLOAD\n%s",
+            json.dumps(sanitize_payload(provider_payload), ensure_ascii=True, indent=2, default=str),
+        )
 
     t0 = time.perf_counter()
     try:
@@ -43,18 +56,33 @@ def _call_llm(
                     "Authorization": f"Bearer {settings.groq_api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": use_model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                },
+                json=provider_payload,
             )
             resp.raise_for_status()
             data = resp.json()
 
         duration_ms = round((time.perf_counter() - t0) * 1000, 1)
         content = data["choices"][0]["message"]["content"]
+
+        if settings.debug_trace:
+            logger.info(
+                "LLM_PROVIDER_RESPONSE\n%s",
+                json.dumps(
+                    sanitize_payload(
+                        {
+                            "model": use_model,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                            "raw_provider_response": data,
+                            "extracted_text": content,
+                            "duration_ms": duration_ms,
+                        }
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                    default=str,
+                ),
+            )
 
         logger.info("LLM [%s] → %d chars (%.0fms)", use_model, len(content), duration_ms)
         return {
@@ -252,6 +280,8 @@ def generate_answer(
     query_name: str,
     strict_mode: bool = False,
     history: list[dict[str, str]] | None = None,
+    trace_context: Any | None = None,
+    trace_stage: str = "Final LLM Answer Generation",
 ) -> dict[str, Any]:
     """Single LLM call: structured DB output → natural language answer.
 
@@ -330,6 +360,7 @@ def generate_answer(
             ),
         },
     ]
+    user_payload = messages[-1]["content"]
 
     result = _call_llm(
         messages,
@@ -338,10 +369,33 @@ def generate_answer(
         max_tokens=1024,
     )
 
+    if trace_context is not None:
+        log_model_call(
+            trace_context,
+            trace_stage,
+            model=result.get("model") or settings.groq_model,
+            system_prompt=system_prompt,
+            messages=messages,
+            output=result.get("content", ""),
+            duration_ms=result.get("duration_ms", 0),
+            temperature=0.2,
+            max_tokens=1024,
+            extra_details={
+                "intent": intent,
+                "query_name": query_name,
+                "input_query": user_query,
+                "history": normalized_history,
+                "evidence_payload": db_results[:20],
+                "user_payload": user_payload,
+            },
+        )
+
     return {
         "answer": result.get("content", ""),
         "model": result.get("model"),
         "duration_ms": result.get("duration_ms"),
         "error": result.get("error"),
+        "_system_prompt": system_prompt,
+        "_messages": messages,
     }
 

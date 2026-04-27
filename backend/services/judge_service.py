@@ -18,6 +18,8 @@ import re
 import time
 from typing import Any
 
+from backend.utils.trace_logger import log_model_call, log_step
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +57,7 @@ def evaluate_3c3h(
     answer: str,
     evidence: list[dict],
     llm_call_fn,
+    trace_context: Any | None = None,
 ) -> dict[str, Any]:
     """Run 3C3H evaluation using LLM-as-judge.
 
@@ -93,6 +96,24 @@ def evaluate_3c3h(
     else:
         composite = None
 
+    if trace_context is not None:
+        log_model_call(
+            trace_context,
+            "Judge Evaluation (3C3H)",
+            model="judge-via-llm-call-fn",
+            system_prompt=_JUDGE_SYSTEM_PROMPT,
+            messages=messages,
+            output={"raw_output": content, "scores": scores, "composite_score": composite},
+            duration_ms=duration_ms,
+            temperature=0.0,
+            max_tokens=300,
+            extra_details={
+                "answer_evaluated": answer,
+                "raw_score_json": content,
+                "evidence_used": evidence[:10],
+            },
+        )
+
     return {
         "method": "3C3H",
         "scores": scores,
@@ -110,6 +131,7 @@ def evaluate_3c3h(
 def evaluate_nlp_metrics(
     answer: str,
     evidence: list[dict],
+    trace_context: Any | None = None,
 ) -> dict[str, Any]:
     """Compute lightweight NLP quality metrics locally.
 
@@ -177,6 +199,20 @@ def evaluate_nlp_metrics(
 
     composite = round(sum(scores.values()) / len(scores), 3)
     duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+    if trace_context is not None:
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Judge Evaluation (NLP Metrics)",
+            details={
+                "answer_evaluated": answer,
+                "evidence_used": evidence[:10],
+                "scores": scores,
+                "composite_score": composite,
+                "duration_ms": duration_ms,
+            },
+        )
 
     return {
         "method": "NLP",

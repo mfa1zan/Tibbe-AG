@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import time
 from functools import lru_cache
 from typing import Any
@@ -11,6 +12,7 @@ from neo4j import GraphDatabase
 
 from backend.core.config import get_settings
 from backend.queries.query_library import ALL_QUERIES, CypherQuery
+from backend.utils.trace_logger import log_db_call, sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ def close_driver() -> None:
 def execute_query(
     query_id: str,
     params: dict[str, Any],
+    trace_context: Any | None = None,
 ) -> dict[str, Any]:
     """Execute a predefined query by its ID and return structured results.
 
@@ -68,10 +71,27 @@ def execute_query(
         }
 
     driver = _get_driver()
+    settings = get_settings()
     t0 = time.perf_counter()
 
     try:
         with driver.session() as session:
+            if settings.debug_trace:
+                logger.info(
+                    "DB_EXECUTE_INPUT\n%s",
+                    json.dumps(
+                        sanitize_payload(
+                            {
+                                "query_id": query_def.id,
+                                "cypher": query_def.cypher.strip(),
+                                "params": params,
+                            }
+                        ),
+                        ensure_ascii=True,
+                        indent=2,
+                        default=str,
+                    ),
+                )
             result = session.run(query_def.cypher, **params)
             rows = [dict(record) for record in result]
 
@@ -84,6 +104,34 @@ def execute_query(
             len(rows),
             duration_ms,
         )
+
+        if settings.debug_trace:
+            logger.info(
+                "DB_EXECUTE_OUTPUT\n%s",
+                json.dumps(
+                    sanitize_payload(
+                        {
+                            "query_id": query_def.id,
+                            "rows_returned": len(rows),
+                            "first_3_rows": rows[:3],
+                            "duration_ms": duration_ms,
+                        }
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                    default=str,
+                ),
+            )
+
+        if trace_context is not None:
+            log_db_call(
+                trace_context,
+                query_id=query_def.id,
+                cypher=query_def.cypher.strip(),
+                params=params,
+                rows=rows,
+                duration_ms=duration_ms,
+            )
 
         return {
             "rows": rows,
@@ -101,6 +149,16 @@ def execute_query(
             duration_ms,
             exc,
         )
+
+        if trace_context is not None:
+            log_db_call(
+                trace_context,
+                query_id=query_def.id,
+                cypher=query_def.cypher.strip(),
+                params=params,
+                rows=[],
+                duration_ms=duration_ms,
+            )
         return {
             "error": str(exc),
             "rows": [],

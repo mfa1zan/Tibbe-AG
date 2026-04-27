@@ -24,6 +24,7 @@ from backend.services import (
     response_builder,
 )
 from backend.services.entity_resolver import get_entity_lists, resolve_entities
+from backend.utils.trace_logger import end_trace, log_error, log_step, start_trace
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ def _compose_multi_segment_answer(
     routed_segments: list[dict[str, Any]],
     strict_mode: bool,
     history: list[dict[str, str]] | None = None,
+    trace_context: Any | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Build a separated answer with one section per segment + a combined guidance section."""
     section_outputs: list[tuple[str, str]] = []
@@ -133,6 +135,8 @@ def _compose_multi_segment_answer(
             query_name=db_result.get("query_name", ""),
             strict_mode=strict_mode,
             history=history,
+            trace_context=trace_context,
+            trace_stage=f"Final LLM Answer Generation (segment: {label})",
         ).get("answer", "")
 
         cleaned = _strip_repeated_disclaimer(single_answer)
@@ -166,11 +170,45 @@ def _compose_multi_segment_answer(
     return final_answer, {"answer": final_answer, "model": "composed-multi-segment", "duration_ms": 0}
 
 
-def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+def _run_graph_retrieval_for_segment(
+    segment: str,
+    history: list[dict[str, str]] | None = None,
+    trace_context: Any | None = None,
+) -> dict[str, Any]:
     """Resolve entities, route intent, and execute one graph query for a segment."""
-    entities = resolve_entities(segment, history=history)
-    intent = query_router.classify_intent(segment, entities)
-    query_id, params, resolved_intent = query_router.route_query(intent, entities)
+    entities = resolve_entities(segment, history=history, trace_context=trace_context)
+    intent, reason = query_router.classify_intent_with_reason(segment, entities)
+    if trace_context is not None:
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Intent Classification",
+            details={
+                "input_query": segment,
+                "segment": segment,
+                "detected_intent": intent,
+                "why_matched": reason,
+            },
+        )
+
+    query_id, params, resolved_intent, route_reason = query_router.route_query_with_reason(
+        intent,
+        entities,
+        user_query=segment,
+    )
+    if trace_context is not None:
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Query Routing",
+            details={
+                "segment": segment,
+                "query_id": query_id,
+                "params": params,
+                "resolved_intent": resolved_intent,
+                "why_selected": route_reason,
+            },
+        )
 
     if query_id is None:
         return {
@@ -187,7 +225,7 @@ def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]]
             },
         }
 
-    db_result = graph_service.execute_query(query_id, params)
+    db_result = graph_service.execute_query(query_id, params, trace_context=trace_context)
     return {
         "segment": segment,
         "entities": entities,
@@ -197,256 +235,360 @@ def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]]
     }
 
 
-async def _run_pipeline(query: str, history: list[dict], debug: bool = False, strict_mode: bool = False) -> dict[str, Any]:
+async def _run_pipeline(
+    query: str,
+    history: list[dict],
+    debug: bool = False,
+    strict_mode: bool = False,
+    trace_id: str | None = None,
+) -> dict[str, Any]:
     """Execute the full GraphRAG pipeline and return the response dict."""
     logger.info("Pipeline strict_mode=%s", strict_mode)
     settings = get_settings()
+    trace_context = start_trace(trace_id=trace_id)
+    success = False
 
-    normalized_history: list[dict[str, str]] = []
-    for msg in history or []:
-        if not isinstance(msg, dict):
-            continue
-        role = msg.get("role")
-        content = msg.get("content")
-        if not isinstance(content, str) or not content.strip():
-            continue
-        if role == "bot":
-            role = "assistant"
-        if role not in {"user", "assistant"}:
-            continue
-        normalized_history.append({"role": role, "content": content})
+    log_step(
+        trace_context,
+        "BACKEND",
+        "Incoming request",
+        details={
+            "query": query,
+            "history_count": len(history or []),
+            "strict_mode": strict_mode,
+            "debug_endpoint": debug,
+        },
+    )
 
-    trimmed_history = normalized_history[-6:]
+    try:
+        normalized_history: list[dict[str, str]] = []
+        for msg in history or []:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content")
+            if not isinstance(content, str) or not content.strip():
+                continue
+            if role == "bot":
+                role = "assistant"
+            if role not in {"user", "assistant"}:
+                continue
+            normalized_history.append({"role": role, "content": content})
 
-    # ── Multi-segment handling for combined prompts ─────────────────────
-    segments = _split_query_segments(query)
-    if len(segments) == 1:
-        detected_diseases = _detect_diseases_in_query(query)
-        if len(detected_diseases) >= 2:
-            segments = [f"what helps with {disease}" for disease in detected_diseases]
+        trimmed_history = normalized_history[-6:]
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "History Normalize",
+            details={
+                "input_history_count": len(history or []),
+                "output_history_count": len(normalized_history),
+                "trimmed_history_count": len(trimmed_history),
+            },
+        )
 
-    if len(segments) > 1:
-        logger.info("Detected %d query segments: %s", len(segments), segments)
+        # ── Multi-segment handling for combined prompts ─────────────────────
+        segments = _split_query_segments(query)
+        if len(segments) == 1:
+            detected_diseases = _detect_diseases_in_query(query)
+            if len(detected_diseases) >= 2:
+                segments = [f"what helps with {disease}" for disease in detected_diseases]
 
-        segment_results = [_run_graph_retrieval_for_segment(segment, history=trimmed_history) for segment in segments]
-        routed_segments = [res for res in segment_results if res.get("query_id")]
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Segment Detection",
+            details={
+                "split_segments": segments,
+                "is_multi_segment": len(segments) > 1,
+            },
+        )
 
-        # Only switch to multi-query mode when at least 2 segments were routed.
-        if len(routed_segments) >= 2:
-            combined_rows: list[dict[str, Any]] = []
-            query_names: list[str] = []
-            cyphers: list[str] = []
-            total_duration_ms = 0.0
+        if len(segments) > 1:
+            logger.info("Detected %d query segments: %s", len(segments), segments)
 
-            for result in routed_segments:
-                db_result = result["db_result"]
-                rows = db_result.get("rows", []) or []
-                for row in rows:
-                    merged_row = dict(row)
-                    merged_row["_segment"] = result["segment"]
-                    combined_rows.append(merged_row)
+            segment_results = [
+                _run_graph_retrieval_for_segment(segment, history=trimmed_history, trace_context=trace_context)
+                for segment in segments
+            ]
+            routed_segments = [res for res in segment_results if res.get("query_id")]
 
-                query_name = db_result.get("query_name")
-                if isinstance(query_name, str) and query_name:
-                    query_names.append(query_name)
+            # Only switch to multi-query mode when at least 2 segments were routed.
+            if len(routed_segments) >= 2:
+                combined_rows: list[dict[str, Any]] = []
+                query_names: list[str] = []
+                cyphers: list[str] = []
+                total_duration_ms = 0.0
 
-                cypher = db_result.get("cypher")
-                if isinstance(cypher, str) and cypher:
-                    cyphers.append(cypher)
+                for result in routed_segments:
+                    db_result = result["db_result"]
+                    rows = db_result.get("rows", []) or []
+                    for row in rows:
+                        merged_row = dict(row)
+                        merged_row["_segment"] = result["segment"]
+                        combined_rows.append(merged_row)
 
-                total_duration_ms += float(db_result.get("duration_ms", 0) or 0)
+                    query_name = db_result.get("query_name")
+                    if isinstance(query_name, str) and query_name:
+                        query_names.append(query_name)
 
-            merged_db_result = {
-                "rows": combined_rows,
-                "row_count": len(combined_rows),
-                "query_name": f"multi[{', '.join(dict.fromkeys(query_names))}]" if query_names else "multi",
-                "duration_ms": round(total_duration_ms, 1),
-                "cypher": "\n\n".join(dict.fromkeys(cyphers)),
-            }
+                    cypher = db_result.get("cypher")
+                    if isinstance(cypher, str) and cypher:
+                        cyphers.append(cypher)
 
-            intents = [res.get("intent", "general") for res in routed_segments]
-            merged_intent = intents[0] if intents and all(i == intents[0] for i in intents) else "multi_query"
+                    total_duration_ms += float(db_result.get("duration_ms", 0) or 0)
 
-            entities = resolve_entities(query, history=trimmed_history)
+                merged_db_result = {
+                    "rows": combined_rows,
+                    "row_count": len(combined_rows),
+                    "query_name": f"multi[{', '.join(dict.fromkeys(query_names))}]" if query_names else "multi",
+                    "duration_ms": round(total_duration_ms, 1),
+                    "cypher": "\n\n".join(dict.fromkeys(cyphers)),
+                }
 
-            if strict_mode and not combined_rows:
-                final_answer = (
+                intents = [res.get("intent", "general") for res in routed_segments]
+                merged_intent = intents[0] if intents and all(i == intents[0] for i in intents) else "multi_query"
+
+                entities = resolve_entities(query, history=trimmed_history, trace_context=trace_context)
+
+                if strict_mode and not combined_rows:
+                    final_answer = (
+                        "I could not find relevant information for this query in the knowledge graph database. "
+                        "Strict mode is enabled, so I cannot supplement with general knowledge. "
+                        "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
+                    )
+                    llm_result = {"answer": final_answer}
+                else:
+                    final_answer, llm_result = _compose_multi_segment_answer(
+                        user_query=query,
+                        routed_segments=routed_segments,
+                        strict_mode=strict_mode,
+                        history=trimmed_history,
+                        trace_context=trace_context,
+                    )
+                    if not final_answer:
+                        final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
+
+                judge_report: dict[str, Any] | None = None
+                if settings.enable_judge and combined_rows:
+                    try:
+                        judge_report = judge_service.evaluate_3c3h(
+                            user_query=query,
+                            answer=final_answer,
+                            evidence=combined_rows,
+                            llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
+                                msgs, model=settings.model_intent, **kw
+                            ),
+                            trace_context=trace_context,
+                        )
+                    except Exception:
+                        logger.warning("3C3H judge failed for multi-segment query, falling back to NLP metrics")
+                        judge_report = judge_service.evaluate_nlp_metrics(
+                            answer=final_answer,
+                            evidence=combined_rows,
+                            trace_context=trace_context,
+                        )
+                elif combined_rows:
+                    judge_report = judge_service.evaluate_nlp_metrics(
+                        answer=final_answer,
+                        evidence=combined_rows,
+                        trace_context=trace_context,
+                    )
+
+                response = response_builder.build_response(
+                    user_query=query,
+                    final_answer=final_answer,
+                    intent=merged_intent,
+                    db_result=merged_db_result,
+                    llm_result=llm_result,
+                    entities=entities,
+                    judge_report=judge_report,
+                    debug=debug,
+                    trace_id=trace_context.trace_id,
+                    trace_context=trace_context,
+                )
+                success = True
+                return response
+
+        # ── Step 1: Hybrid entity resolution (LLM + fuzzy DB matching) ───────
+        entities = resolve_entities(query, history=trimmed_history, trace_context=trace_context)
+        logger.info("Resolved entities: disease=%s ingredient=%s drug=%s",
+                    entities.get("disease"), entities.get("ingredient"), entities.get("drug"))
+
+        # ── Step 2: Classify intent (keyword-based, entity-aware) ────────────
+        intent, reason = query_router.classify_intent_with_reason(query, entities)
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Intent Classification",
+            details={"input_query": query, "detected_intent": intent, "why_matched": reason},
+        )
+
+        # ── Step 3: Route to predefined query ────────────────────────────────
+        query_id, params, resolved_intent, route_reason = query_router.route_query_with_reason(
+            intent,
+            entities,
+            user_query=query,
+        )
+        log_step(
+            trace_context,
+            "PIPELINE",
+            "Query Routing",
+            details={
+                "query_id": query_id,
+                "params": params,
+                "resolved_intent": resolved_intent,
+                "why_selected": route_reason,
+            },
+        )
+
+        if query_id is None:
+            if strict_mode:
+                no_data_answer = (
                     "I could not find relevant information for this query in the knowledge graph database. "
                     "Strict mode is enabled, so I cannot supplement with general knowledge. "
                     "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
                 )
-                llm_result = {"answer": final_answer}
-            else:
-                final_answer, llm_result = _compose_multi_segment_answer(
+                response = response_builder.build_response(
                     user_query=query,
-                    routed_segments=routed_segments,
-                    strict_mode=strict_mode,
-                    history=trimmed_history,
+                    final_answer=no_data_answer,
+                    intent=resolved_intent,
+                    db_result={"rows": [], "row_count": 0, "query_name": "none", "duration_ms": 0},
+                    llm_result={"answer": no_data_answer},
+                    entities=entities,
+                    debug=debug,
+                    trace_id=trace_context.trace_id,
+                    trace_context=trace_context,
                 )
-                if not final_answer:
-                    final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
-
-            judge_report: dict[str, Any] | None = None
-            if settings.enable_judge and combined_rows:
-                try:
-                    judge_report = judge_service.evaluate_3c3h(
-                        user_query=query,
-                        answer=final_answer,
-                        evidence=combined_rows,
-                        llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
-                            msgs, model=settings.model_intent, **kw
-                        ),
-                    )
-                except Exception:
-                    logger.warning("3C3H judge failed for multi-segment query, falling back to NLP metrics")
-                    judge_report = judge_service.evaluate_nlp_metrics(
-                        answer=final_answer,
-                        evidence=combined_rows,
-                    )
-            elif combined_rows:
-                judge_report = judge_service.evaluate_nlp_metrics(
-                    answer=final_answer,
-                    evidence=combined_rows,
-                )
-
-            return response_builder.build_response(
+                success = True
+                return response
+            # No suitable query — answer without graph evidence
+            llm_result = llm_service.generate_answer(
                 user_query=query,
-                final_answer=final_answer,
-                intent=merged_intent,
-                db_result=merged_db_result,
+                db_results=[],
+                intent=resolved_intent,
+                query_name="none",
+                strict_mode=strict_mode,
+                history=trimmed_history,
+                trace_context=trace_context,
+            )
+            response = response_builder.build_response(
+                user_query=query,
+                final_answer=llm_result.get("answer", "I could not find relevant information."),
+                intent=resolved_intent,
+                db_result={"rows": [], "row_count": 0, "query_name": "none", "duration_ms": 0},
                 llm_result=llm_result,
                 entities=entities,
-                judge_report=judge_report,
                 debug=debug,
+                trace_id=trace_context.trace_id,
+                trace_context=trace_context,
             )
+            success = True
+            return response
 
-    # ── Step 1: Hybrid entity resolution (LLM + fuzzy DB matching) ───────
-    entities = resolve_entities(query, history=trimmed_history)
-    logger.info("Resolved entities: disease=%s ingredient=%s drug=%s",
-                entities.get("disease"), entities.get("ingredient"), entities.get("drug"))
+        # ── Step 4: Execute query against Neo4j ──────────────────────────────
+        db_result = graph_service.execute_query(query_id, params, trace_context=trace_context)
 
-    # ── Step 2: Classify intent (keyword-based, entity-aware) ────────────
-    intent = query_router.classify_intent(query, entities)
-    logger.info("Intent: %s", intent)
+        # ── Special handling: disease_drug runs two queries ──
+        if resolved_intent == "disease_drug" and entities.get("disease"):
+            db_result_a = graph_service.execute_query(
+                "A", {"disease_name": entities["disease"]}, trace_context=trace_context
+            )
+            rows_a = db_result_a.get("rows", []) or []
+            rows_e = db_result.get("rows", []) or []
+            combined = rows_a + rows_e
+            db_result = {
+                **db_result,
+                "rows": combined,
+                "row_count": len(combined),
+            }
 
-    # ── Step 3: Route to predefined query ────────────────────────────────
-    query_id, params, resolved_intent = query_router.route_query(intent, entities)
+        if db_result.get("error"):
+            logger.error("Graph query error: %s", db_result["error"])
 
-    if query_id is None:
-        if strict_mode:
-            no_data_answer = (
+        rows = db_result.get("rows", [])
+
+        # ── Step 5: Generate answer (single LLM call) ────────────────────────
+        if strict_mode and not rows:
+            final_answer = (
                 "I could not find relevant information for this query in the knowledge graph database. "
                 "Strict mode is enabled, so I cannot supplement with general knowledge. "
                 "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
             )
-            return response_builder.build_response(
+            llm_result = {"answer": final_answer}
+        else:
+            llm_result = llm_service.generate_answer(
                 user_query=query,
-                final_answer=no_data_answer,
+                db_results=rows,
                 intent=resolved_intent,
-                db_result={"rows": [], "row_count": 0, "query_name": "none", "duration_ms": 0},
-                llm_result={"answer": no_data_answer},
-                entities=entities,
-                debug=debug,
+                query_name=db_result.get("query_name", ""),
+                strict_mode=strict_mode,
+                history=trimmed_history,
+                trace_context=trace_context,
             )
-        # No suitable query — answer without graph evidence
-        llm_result = llm_service.generate_answer(
-            user_query=query,
-            db_results=[],
-            intent=resolved_intent,
-            query_name="none",
-            strict_mode=strict_mode,
-            history=trimmed_history,
-        )
-        return response_builder.build_response(
-            user_query=query,
-            final_answer=llm_result.get("answer", "I could not find relevant information."),
-            intent=resolved_intent,
-            db_result={"rows": [], "row_count": 0, "query_name": "none", "duration_ms": 0},
-            llm_result=llm_result,
-            entities=entities,
-            debug=debug,
-        )
+            final_answer = llm_result.get("answer", "")
+            if not final_answer.strip():
+                final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
 
-    # ── Step 4: Execute query against Neo4j ──────────────────────────────
-    db_result = graph_service.execute_query(query_id, params)
-
-    # ── Special handling: disease_drug runs two queries ──
-    if resolved_intent == "disease_drug" and entities.get("disease"):
-        db_result_a = graph_service.execute_query(
-            "A", {"disease_name": entities["disease"]}
-        )
-        rows_a = db_result_a.get("rows", []) or []
-        rows_e = db_result.get("rows", []) or []
-        combined = rows_a + rows_e
-        db_result = {
-            **db_result,
-            "rows": combined,
-            "row_count": len(combined),
-        }
-
-    if db_result.get("error"):
-        logger.error("Graph query error: %s", db_result["error"])
-
-    rows = db_result.get("rows", [])
-
-    # ── Step 5: Generate answer (single LLM call) ────────────────────────
-    if strict_mode and not rows:
-        final_answer = (
-            "I could not find relevant information for this query in the knowledge graph database. "
-            "Strict mode is enabled, so I cannot supplement with general knowledge. "
-            "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
-        )
-        llm_result = {"answer": final_answer}
-    else:
-        llm_result = llm_service.generate_answer(
-            user_query=query,
-            db_results=rows,
-            intent=resolved_intent,
-            query_name=db_result.get("query_name", ""),
-            strict_mode=strict_mode,
-            history=trimmed_history,
-        )
-        final_answer = llm_result.get("answer", "")
-        if not final_answer.strip():
-            final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
-
-    # ── Step 6: Judge evaluation ─────────────────────────────────────────
-    judge_report: dict[str, Any] | None = None
-    if settings.enable_judge and rows:
-        try:
-            # Try 3C3H first (LLM-based)
-            judge_report = judge_service.evaluate_3c3h(
-                user_query=query,
-                answer=final_answer,
-                evidence=rows,
-                llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
-                    msgs, model=settings.model_intent, **kw
-                ),
-            )
-        except Exception:
-            logger.warning("3C3H judge failed, falling back to NLP metrics")
+        # ── Step 6: Judge evaluation ─────────────────────────────────────────
+        judge_report: dict[str, Any] | None = None
+        if settings.enable_judge and rows:
+            try:
+                # Try 3C3H first (LLM-based)
+                judge_report = judge_service.evaluate_3c3h(
+                    user_query=query,
+                    answer=final_answer,
+                    evidence=rows,
+                    llm_call_fn=lambda msgs, **kw: llm_service._call_llm(
+                        msgs, model=settings.model_intent, **kw
+                    ),
+                    trace_context=trace_context,
+                )
+            except Exception:
+                logger.warning("3C3H judge failed, falling back to NLP metrics")
+                judge_report = judge_service.evaluate_nlp_metrics(
+                    answer=final_answer,
+                    evidence=rows,
+                    trace_context=trace_context,
+                )
+        elif rows:
+            # Judge disabled — use NLP metrics as lightweight alternative
             judge_report = judge_service.evaluate_nlp_metrics(
                 answer=final_answer,
                 evidence=rows,
+                trace_context=trace_context,
             )
-    elif rows:
-        # Judge disabled — use NLP metrics as lightweight alternative
-        judge_report = judge_service.evaluate_nlp_metrics(
-            answer=final_answer,
-            evidence=rows,
-        )
 
-    # ── Step 7: Build response ───────────────────────────────────────────
-    return response_builder.build_response(
-        user_query=query,
-        final_answer=final_answer,
-        intent=resolved_intent,
-        db_result=db_result,
-        llm_result=llm_result,
-        entities=entities,
-        judge_report=judge_report,
-        debug=debug,
-    )
+        # ── Step 7: Build response ───────────────────────────────────────────
+        response = response_builder.build_response(
+            user_query=query,
+            final_answer=final_answer,
+            intent=resolved_intent,
+            db_result=db_result,
+            llm_result=llm_result,
+            entities=entities,
+            judge_report=judge_report,
+            debug=debug,
+            trace_id=trace_context.trace_id,
+            trace_context=trace_context,
+        )
+        success = True
+        return response
+    except Exception as exc:
+        log_error(
+            trace_context,
+            stage="run_pipeline",
+            exception=exc,
+            input_snapshot={
+                "query": query,
+                "history_count": len(history or []),
+                "strict_mode": strict_mode,
+                "debug": debug,
+            },
+        )
+        return response_builder.build_error_response(trace_id=trace_context.trace_id)
+    finally:
+        end_trace(trace_context, success=success)
 
 
 @router.post("/api/chat")
@@ -457,10 +599,11 @@ async def chat(request: ChatRequest) -> dict:
             request.query,
             [m.model_dump() for m in request.history],
             strict_mode=request.strict_mode,
+            trace_id=request.trace_id,
         )
     except Exception:
         logger.exception("/api/chat failed")
-        return response_builder.build_error_response()
+        return response_builder.build_error_response(trace_id=request.trace_id)
 
 
 @router.post("/api/chat/debug")
@@ -472,9 +615,11 @@ async def chat_debug(request: ChatRequest) -> dict:
             [m.model_dump() for m in request.history],
             debug=True,
             strict_mode=request.strict_mode,
+            trace_id=request.trace_id,
         )
     except Exception:
         logger.exception("/api/chat/debug failed")
         return response_builder.build_error_response(
-            "Pipeline debug failed. Check server logs."
+            "Pipeline debug failed. Check server logs.",
+            trace_id=request.trace_id,
         )

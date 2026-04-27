@@ -1,8 +1,9 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import ReasoningPanel from './ReasoningPanel';
+import { logFrontendStep } from '../traceLogger';
 import './ChatBubble.css';
 
 function ChatBubble({ message }) {
@@ -21,6 +22,24 @@ function ChatBubble({ message }) {
   const hasPaths = Number.isFinite(message.graphPathsUsed);
   const hasEvidenceStrength = typeof message.evidenceStrength === 'string' && message.evidenceStrength.length > 0;
   const showMeta = !isUser && (hasConfidence || hasPaths || hasEvidenceStrength);
+
+  useEffect(() => {
+    if (!isUser && !message.isStreaming && typeof message.content === 'string' && message.content.trim()) {
+      logFrontendStep('[FRONTEND][UI] Bot message rendered successfully', {
+        trace_id: message.traceId || 'unknown',
+        reply_length: message.content.length,
+        evidence_strength: message.evidenceStrength,
+        confidence_score: message.confidenceScore
+      });
+    }
+  }, [
+    isUser,
+    message.isStreaming,
+    message.content,
+    message.traceId,
+    message.evidenceStrength,
+    message.confidenceScore
+  ]);
 
   if (isStatusMessage) {
     return (
