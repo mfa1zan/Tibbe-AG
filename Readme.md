@@ -96,6 +96,12 @@ pip install -r backend/requirements.txt
 
 #### Windows (Command Prompt)
 
+If your `package.json` still uses the Unix-style backend command, replace it with the Windows-friendly version below:
+
+```json
+"dev:backend": "python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8010"
+```
+
 ```cmd
 python -m venv .venv
 .venv\Scripts\activate
