@@ -147,6 +147,26 @@ RETURN
 """,
 )
 
+# ── E2. Disease → Drugs Only ────────────────────────────────────────────────
+
+DISEASE_DRUG_ONLY = CypherQuery(
+        id="E2",
+        name="Disease → Drugs Only",
+        description="Get only pharmaceutical drugs linked to a disease via ingredient-compound chain",
+        param_keys=("disease_name",),
+        cypher="""\
+MATCH (d:Disease)
+WHERE toLower(d.name) = toLower($disease_name)
+MATCH (i:Ingredient)-[:CURES]->(d)
+MATCH (i)-[r1:CONTAINS]->(c:ChemicalCompound)
+MATCH (c)-[r2:IS_IDENTICAL_TO|IS_LIKELY_EQUIVALENT_TO]->(dcc:DrugChemicalCompound)
+MATCH (dr:Drug)-[r3:CONTAINS]->(dcc)
+RETURN DISTINCT
+    dr.name AS drug,
+    type(r2) AS mapping_strength
+""",
+)
+
 # ── F. Hadith Deep Linking ───────────────────────────────────────────────────
 
 HADITH_DEEP_LINK = CypherQuery(
@@ -268,6 +288,7 @@ ALL_QUERIES: dict[str, CypherQuery] = {
         DRUG_BOOK_LINK,
         DRUG_BOOK_INDIRECT,
         DISEASE_FULL_CHAIN,
+        DISEASE_DRUG_ONLY,
         HADITH_DEEP_LINK,
         SOURCE_VALIDATION,
         ADVANCED_FILTERING,

@@ -50,6 +50,11 @@ VALID_INTENTS = {
     INTENT_GENERAL,
 }
 
+# ── Intent Classification Flow ───────────────────────────────────────────────
+# Primary:  analyze_query_llm()      — LLM-based task decomposition (multi-intent)
+#   └── on failure: resolve_entities() + classify_intent_llm()  — single intent LLM
+#         └── on failure: classify_intent_regex()               — regex last resort
+
 # ── Keyword patterns (compiled once) ─────────────────────────────────────────
 
 # Substitution patterns (checked first — takes priority)
@@ -201,14 +206,9 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
 
 async def analyze_query_llm(
     query: str,
-    entity_names: dict[str, list[str]],
     history: list[dict[str, str]] | None = None,
 ) -> dict:
     """Analyze a full query and return entities plus task list for routing."""
-    diseases_str = ", ".join(entity_names.get("Disease", [])[:80])
-    ingredients_str = ", ".join(entity_names.get("Ingredient", []))
-    drugs_str = ", ".join(entity_names.get("Drug", [])[:80])
-
     normalized_history: list[dict[str, str]] = []
     for msg in history or []:
         if not isinstance(msg, dict):
@@ -234,7 +234,7 @@ async def analyze_query_llm(
                 "- Do NOT wrap the response in markdown (no ```json)\n"
                 "- Start the response directly with '{' and end with '}'\n"
                 "- Ensure the JSON is syntactically valid and parsable by json.loads()\n\n"
-                "Return a JSON object with two keys: 'entities' and 'tasks'.\n\n"
+                "Return a JSON object with one key: 'tasks'.\n\n"
                 "INTENT OPTIONS:\n"
                 "- disease_treatment: user asks what food item or (natural) ingredient treats/cures a disease\n"
                 "- disease_full_chain: user wants the full chain for a disease\n"
@@ -249,34 +249,17 @@ async def analyze_query_llm(
                 "- drug_substitute: user wants natural alternatives to a drug\n"
                 "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
                 "- general: none of the above\n\n"
-                "KNOWN ENTITIES IN THE DATABASE:\n"
-                f"Diseases: {diseases_str}\n"
-                f"Ingredients: {ingredients_str}\n"
-                f"Drugs: {drugs_str}\n\n"
                 "RULES:\n"
-                "- Match the user's mention to the CLOSEST known entity name above\n"
-                "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
-                "- If no entity of a type is mentioned, use null\n"
-                "- compound: if the user mentions any chemical compound, nutrient, mineral, or vitamin by name, extract it exactly as written\n"
                 "- Tasks must only use intents from the list above\n"
                 "- If the query is simple or single-intent, return exactly one task\n"
                 "- Cap tasks at 4 maximum\n\n"
                 "OUTPUT FORMAT (JSON only):\n"
-                "{\"entities\": {\"disease\": null, \"ingredient\": null, \"drug\": null, \"compound\": null}, "
-                "\"tasks\": [{\"intent\": \"...\", \"sub_question\": \"...\"}]}"
+                "{\"tasks\": [{\"intent\": \"...\", \"sub_question\": \"...\"}]}"
             ),
         },
         *normalized_history,
         {"role": "user", "content": query},
     ]
-
-    def _clean_entity(value: object) -> str | None:
-        if not isinstance(value, str):
-            return None
-        cleaned = value.strip()
-        if not cleaned or cleaned.lower() in {"null", "none", "unknown", "n/a"}:
-            return None
-        return cleaned
 
     try:
         def _thread_call_analysis():
@@ -298,14 +281,6 @@ async def analyze_query_llm(
             cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         parsed = json.loads(cleaned)
 
-        raw_entities = parsed.get("entities") if isinstance(parsed, dict) else None
-        entities = {
-            "disease": _clean_entity(raw_entities.get("disease")) if isinstance(raw_entities, dict) else None,
-            "ingredient": _clean_entity(raw_entities.get("ingredient")) if isinstance(raw_entities, dict) else None,
-            "drug": _clean_entity(raw_entities.get("drug")) if isinstance(raw_entities, dict) else None,
-            "compound": _clean_entity(raw_entities.get("compound")) if isinstance(raw_entities, dict) else None,
-        }
-
         tasks: list[dict[str, str]] = []
         raw_tasks = parsed.get("tasks") if isinstance(parsed, dict) else None
         if isinstance(raw_tasks, list):
@@ -322,6 +297,7 @@ async def analyze_query_llm(
                     tasks.append({"intent": normalized_intent, "sub_question": normalized_subq})
 
         if tasks:
+            entities = resolve_entities(query, history=history)
             return {"entities": entities, "tasks": tasks[:4]}
 
         logger.warning("Query analysis LLM returned invalid tasks: %s", content)
@@ -377,7 +353,7 @@ def route_query(
 
     # ── Drug-centric intents ─────────────────────────────────────────────
     if intent == INTENT_DISEASE_DRUG and disease:
-        return "E", {"disease_name": disease}, intent
+        return "E2", {"disease_name": disease}, intent
 
     if intent == INTENT_DRUG_BOOK and drug:
         return "D1", {"drug_name": drug}, intent
@@ -404,5 +380,5 @@ def route_query(
     if drug:
         return "D1", {"drug_name": drug}, INTENT_DRUG_BOOK
 
-    logger.warning("No entity found for intent '%s' — cannot route to a query", intent)
-    return None, {}, intent
+    logger.warning("No entity found for intent '%s' — returning general fallback", intent)
+    return None, {}, INTENT_GENERAL

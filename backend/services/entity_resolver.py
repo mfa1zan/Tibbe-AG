@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from difflib import SequenceMatcher, get_close_matches
+from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any
 
@@ -85,27 +85,6 @@ def get_entity_lists() -> dict[str, list[str]]:
     return _fetch_all_entity_names()
 
 
-# ── Fuzzy Matching ───────────────────────────────────────────────────────────
-
-
-def _generate_ngrams(text: str, max_n: int = 5) -> list[str]:
-    """Generate n-gram chunks from text for fuzzy matching."""
-    tokens = _normalize(text).split()
-    if not tokens:
-        return []
-
-    chunks: list[str] = []
-    for size in range(1, min(max_n, len(tokens)) + 1):
-        for start in range(len(tokens) - size + 1):
-            chunk = " ".join(tokens[start:start + size])
-            if len(chunk) >= MIN_CHUNK_CHARS:
-                chunks.append(chunk)
-
-    # Longer chunks first for better name matching
-    chunks.sort(key=len, reverse=True)
-    return list(dict.fromkeys(chunks))
-
-
 def _fuzzy_match(query: str, candidates: list[str]) -> tuple[str | None, float]:
     """Find the best fuzzy match for query against candidate names.
 
@@ -118,29 +97,20 @@ def _fuzzy_match(query: str, candidates: list[str]) -> tuple[str | None, float]:
     if len(normalized_query) < MIN_CHUNK_CHARS:
         return None, 0.0
 
-    # Build normalized → original mapping
-    candidate_map = {_normalize(name): name for name in candidates}
-    normalized_candidates = list(candidate_map.keys())
-
-    # 1) Exact case-insensitive containment
-    for norm_name, orig_name in candidate_map.items():
-        if norm_name and norm_name in normalized_query:
-            return orig_name, 1.0
-
-    # 2) Fuzzy match using n-gram chunks of the query
     best_name = None
     best_score = 0.0
-    chunks = _generate_ngrams(query)
 
-    for chunk in chunks:
-        close = get_close_matches(chunk, normalized_candidates, n=1, cutoff=FUZZY_THRESHOLD)
-        if close:
-            score = SequenceMatcher(None, chunk, close[0]).ratio()
-            if score > best_score:
-                best_score = score
-                best_name = candidate_map.get(close[0])
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        score = SequenceMatcher(None, normalized_query, _normalize(candidate)).ratio()
+        if score > best_score:
+            best_score = score
+            best_name = candidate
 
-    return best_name, best_score
+    if best_score >= FUZZY_THRESHOLD:
+        return best_name, best_score
+    return None, 0.0
 
 
 def resolve_entities(query: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
@@ -236,7 +206,7 @@ def _extract_with_entity_context(
 
     # Build compact entity lists for the prompt
     diseases_str = ", ".join(entity_names.get("Disease", [])[:80])
-    ingredients_str = ", ".join(entity_names.get("Ingredient", []))
+    ingredients_str = ", ".join(entity_names.get("Ingredient", [])[:100])
     drugs_str = ", ".join(entity_names.get("Drug", [])[:80])
 
     normalized_history: list[dict[str, str]] = []

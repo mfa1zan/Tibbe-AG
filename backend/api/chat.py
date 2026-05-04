@@ -369,10 +369,8 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
 
     logger.info("Step 1 — Analyzer: starting")
     set_current_step("Step 1 - Analyzer")
-    entity_names = get_entity_lists()
     analysis = await query_router.analyze_query_llm(
         query,
-        entity_names,
         history=trimmed_history,
     )
     clear_current_step()
@@ -392,6 +390,7 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     )
 
     # ── Step 2: Route all tasks to query IDs ─────────────────────────────
+    entity_names = get_entity_lists()
     logger.info("Step 2 — Routing: starting for %d tasks", len(tasks))
     routed_tasks: list[dict[str, Any]] = []
     for task in tasks:
@@ -618,6 +617,21 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
                 evidence=rows,
             )
 
+        if (
+            judge_report is not None
+            and judge_report.get("composite_score") is not None
+            and judge_report["composite_score"] < 0.5
+            and rows
+        ):
+            logger.warning(
+                "Low confidence score %.2f — overriding answer",
+                judge_report["composite_score"],
+            )
+            final_answer = (
+                "The available evidence was insufficient to generate a reliable answer for your query. "
+                "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
+            )
+
         return response_builder.build_response(
             user_query=query,
             final_answer=final_answer,
@@ -705,6 +719,21 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
         judge_report = judge_service.evaluate_nlp_metrics(
             answer=final_answer,
             evidence=combined_rows,
+        )
+
+    if (
+        judge_report is not None
+        and judge_report.get("composite_score") is not None
+        and judge_report["composite_score"] < 0.5
+        and combined_rows
+    ):
+        logger.warning(
+            "Low confidence score %.2f — overriding answer",
+            judge_report["composite_score"],
+        )
+        final_answer = (
+            "The available evidence was insufficient to generate a reliable answer for your query. "
+            "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
         )
 
     return response_builder.build_response(
