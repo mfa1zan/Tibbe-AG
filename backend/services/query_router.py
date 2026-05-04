@@ -14,6 +14,7 @@ import logging
 import re
 
 from backend.services import llm_service
+from backend.services.entity_resolver import resolve_entities
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,22 @@ INTENT_DRUG_SUBSTITUTE = "drug_substitute"
 INTENT_INGREDIENT_SUBSTITUTE = "ingredient_substitute"
 INTENT_COMPOUND_SEARCH = "compound_search"
 INTENT_GENERAL = "general"
+
+VALID_INTENTS = {
+    INTENT_DISEASE_TREATMENT,
+    INTENT_DISEASE_FULL_CHAIN,
+    INTENT_DISEASE_DRUG,
+    INTENT_INGREDIENT_TREATMENT,
+    INTENT_INGREDIENT_COMPOUNDS,
+    INTENT_INGREDIENT_DRUG_MAP,
+    INTENT_DRUG_BOOK,
+    INTENT_HADITH_INFO,
+    INTENT_DRUG_COUNT,
+    INTENT_DRUG_SUBSTITUTE,
+    INTENT_INGREDIENT_SUBSTITUTE,
+    INTENT_COMPOUND_SEARCH,
+    INTENT_GENERAL,
+}
 
 # ── Keyword patterns (compiled once) ─────────────────────────────────────────
 
@@ -120,9 +137,9 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
                 "You are an intent classifier for a Prophetic medicine knowledge graph chatbot.\n"
                 "Given a user query and the detected entities, return the single best intent as JSON.\n\n"
                 "INTENT OPTIONS:\n"
-                "- disease_treatment: user asks what treats/cures a disease\n"
+                "- disease_treatment: user asks what food item or (natural) ingredient treats/cures a disease\n"
                 "- disease_full_chain: user wants the full chain for a disease\n"
-                "- disease_drug: user asks which drugs treat a disease\n"
+                "- disease_drug: user asks which drug/medicine treats or cures a disease\n"
                 "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
                 "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
                 "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
@@ -148,13 +165,19 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
     ]
 
     try:
-        result = await asyncio.to_thread(
-            llm_service._call_llm,
-            messages,
-            model="llama-3.1-8b-instant",
-            temperature=0.0,
-            max_tokens=120,
-        )
+        def _thread_call():
+            llm_service.set_current_step("Step 1 - Intent Classification")
+            try:
+                return llm_service._call_llm(
+                    messages,
+                    model="llama-3.1-8b-instant",
+                    temperature=0.0,
+                    max_tokens=120,
+                )
+            finally:
+                llm_service.clear_current_step()
+
+        result = await asyncio.to_thread(_thread_call)
         content = result.get("content", "")
         cleaned = content.strip()
         if cleaned.startswith("```"):
@@ -165,22 +188,7 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
 
         if isinstance(intent, str):
             normalized_intent = intent.strip()
-            valid_intents = {
-                INTENT_DISEASE_TREATMENT,
-                INTENT_DISEASE_FULL_CHAIN,
-                INTENT_DISEASE_DRUG,
-                INTENT_INGREDIENT_TREATMENT,
-                INTENT_INGREDIENT_COMPOUNDS,
-                INTENT_INGREDIENT_DRUG_MAP,
-                INTENT_DRUG_BOOK,
-                INTENT_HADITH_INFO,
-                INTENT_DRUG_COUNT,
-                INTENT_DRUG_SUBSTITUTE,
-                INTENT_INGREDIENT_SUBSTITUTE,
-                INTENT_COMPOUND_SEARCH,
-                INTENT_GENERAL,
-            }
-            if normalized_intent in valid_intents:
+            if normalized_intent in VALID_INTENTS:
                 logger.info("Intent LLM classified '%s' (%s)", normalized_intent, reason)
                 return normalized_intent
 
@@ -189,6 +197,143 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
         logger.exception("Intent LLM classification failed; falling back to regex")
 
     return classify_intent_regex(user_query, entities)
+
+
+async def analyze_query_llm(
+    query: str,
+    entity_names: dict[str, list[str]],
+    history: list[dict[str, str]] | None = None,
+) -> dict:
+    """Analyze a full query and return entities plus task list for routing."""
+    diseases_str = ", ".join(entity_names.get("Disease", [])[:80])
+    ingredients_str = ", ".join(entity_names.get("Ingredient", []))
+    drugs_str = ", ".join(entity_names.get("Drug", [])[:80])
+
+    normalized_history: list[dict[str, str]] = []
+    for msg in history or []:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if role == "bot":
+            role = "assistant"
+        if role not in {"user", "assistant"}:
+            continue
+        normalized_history.append({"role": role, "content": content})
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You analyze Prophetic medicine chatbot queries and decompose them into tasks.\n"
+                "CRITICAL OUTPUT RULES:\n"
+                "- Output ONLY valid JSON\n"
+                "- Do NOT include explanations, headings, or any text outside JSON\n"
+                "- Do NOT wrap the response in markdown (no ```json)\n"
+                "- Start the response directly with '{' and end with '}'\n"
+                "- Ensure the JSON is syntactically valid and parsable by json.loads()\n\n"
+                "Return a JSON object with two keys: 'entities' and 'tasks'.\n\n"
+                "INTENT OPTIONS:\n"
+                "- disease_treatment: user asks what food item or (natural) ingredient treats/cures a disease\n"
+                "- disease_full_chain: user wants the full chain for a disease\n"
+                "- disease_drug: user asks which drug/medicine treats or cures a disease\n"
+                "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
+                "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
+                "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
+                "- compound_search: user asks which ingredient/food contains a specific chemical compound or nutrient\n"
+                "- drug_book: user wants drug reference/source info\n"
+                "- hadith_info: user asks for hadith or prophetic references\n"
+                "- drug_count: user asks how many drugs are linked to an ingredient\n"
+                "- drug_substitute: user wants natural alternatives to a drug\n"
+                "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
+                "- general: none of the above\n\n"
+                "KNOWN ENTITIES IN THE DATABASE:\n"
+                f"Diseases: {diseases_str}\n"
+                f"Ingredients: {ingredients_str}\n"
+                f"Drugs: {drugs_str}\n\n"
+                "RULES:\n"
+                "- Match the user's mention to the CLOSEST known entity name above\n"
+                "- If the user says 'henna' or 'hena', match to 'Heena' (the DB name)\n"
+                "- If no entity of a type is mentioned, use null\n"
+                "- compound: if the user mentions any chemical compound, nutrient, mineral, or vitamin by name, extract it exactly as written\n"
+                "- Tasks must only use intents from the list above\n"
+                "- If the query is simple or single-intent, return exactly one task\n"
+                "- Cap tasks at 4 maximum\n\n"
+                "OUTPUT FORMAT (JSON only):\n"
+                "{\"entities\": {\"disease\": null, \"ingredient\": null, \"drug\": null, \"compound\": null}, "
+                "\"tasks\": [{\"intent\": \"...\", \"sub_question\": \"...\"}]}"
+            ),
+        },
+        *normalized_history,
+        {"role": "user", "content": query},
+    ]
+
+    def _clean_entity(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        cleaned = value.strip()
+        if not cleaned or cleaned.lower() in {"null", "none", "unknown", "n/a"}:
+            return None
+        return cleaned
+
+    try:
+        def _thread_call_analysis():
+            llm_service.set_current_step("Step 1 - Analyzer")
+            try:
+                return llm_service._call_llm(
+                    messages,
+                    model="llama-3.1-8b-instant",
+                    temperature=0.0,
+                    max_tokens=400,
+                )
+            finally:
+                llm_service.clear_current_step()
+
+        result = await asyncio.to_thread(_thread_call_analysis)
+        content = result.get("content", "")
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(cleaned)
+
+        raw_entities = parsed.get("entities") if isinstance(parsed, dict) else None
+        entities = {
+            "disease": _clean_entity(raw_entities.get("disease")) if isinstance(raw_entities, dict) else None,
+            "ingredient": _clean_entity(raw_entities.get("ingredient")) if isinstance(raw_entities, dict) else None,
+            "drug": _clean_entity(raw_entities.get("drug")) if isinstance(raw_entities, dict) else None,
+            "compound": _clean_entity(raw_entities.get("compound")) if isinstance(raw_entities, dict) else None,
+        }
+
+        tasks: list[dict[str, str]] = []
+        raw_tasks = parsed.get("tasks") if isinstance(parsed, dict) else None
+        if isinstance(raw_tasks, list):
+            for item in raw_tasks:
+                if not isinstance(item, dict):
+                    continue
+                intent = item.get("intent")
+                sub_question = item.get("sub_question")
+                if not isinstance(intent, str) or not isinstance(sub_question, str):
+                    continue
+                normalized_intent = intent.strip()
+                normalized_subq = sub_question.strip()
+                if normalized_intent in VALID_INTENTS and normalized_subq:
+                    tasks.append({"intent": normalized_intent, "sub_question": normalized_subq})
+
+        if tasks:
+            return {"entities": entities, "tasks": tasks[:4]}
+
+        logger.warning("Query analysis LLM returned invalid tasks: %s", content)
+    except Exception:
+        logger.exception("Query analysis LLM failed; falling back to single-intent pipeline")
+
+    entities = resolve_entities(query, history=history)
+    intent = await classify_intent_llm(query, entities)
+    return {
+        "entities": entities,
+        "tasks": [{"intent": intent, "sub_question": query}],
+    }
 
 
 def route_query(

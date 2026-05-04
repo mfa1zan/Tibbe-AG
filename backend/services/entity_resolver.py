@@ -159,8 +159,11 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
 
     # ── Step 1: LLM extraction with entity list context ──────────────────
     llm_entities = _extract_with_entity_context(query, entity_names, history=history)
+    logger.info("----- Input to Entity Resolver -----")
+    logger.info("query: %s", query.replace("\n", " "))
+    logger.info("----- Output from Entity LLM Extraction -----")
     logger.info(
-        "LLM entities: disease=%s ingredient=%s drug=%s compound=%s",
+        "disease=%s ingredient=%s drug=%s compound=%s",
         llm_entities.get("disease"), llm_entities.get("ingredient"), llm_entities.get("drug"), llm_entities.get("compound"),
     )
 
@@ -198,7 +201,17 @@ def resolve_entities(query: str, history: list[dict[str, str]] | None = None) ->
         resolution_log.append("compound=None")
 
     duration_ms = round((time.perf_counter() - t0) * 1000, 1)
-    logger.info("Entity resolution (%.0fms): %s", duration_ms, " | ".join(resolution_log))
+    # Decide the dominant extraction method for concise logging
+    method_used = "unknown"
+    if any("(LLM+fuzzy" in entry for entry in resolution_log):
+        method_used = "LLM+Fuzzy"
+    elif any("(LLM only" in entry for entry in resolution_log):
+        method_used = "LLM only"
+    else:
+        method_used = "fallback/no-entities"
+
+    logger.info("----- Entity Resolution Result (%s) -----", method_used)
+    logger.info("duration_ms=%.0f, resolved=%s", duration_ms, " | ".join(resolution_log))
 
     return {
         "disease": final.get("disease"),
@@ -264,12 +277,17 @@ def _extract_with_entity_context(
         {"role": "user", "content": query},
     ]
 
-    result = llm_service._call_llm(
-        messages,
-        model=settings.model_intent or settings.groq_model,
-        temperature=0.0,
-        max_tokens=200,
-    )
+    # Tag this LLM call so logs clearly show which pipeline step produced it
+    llm_service.set_current_step("Step 1.1 - Entity Extraction")
+    try:
+        result = llm_service._call_llm(
+            messages,
+            model=settings.model_intent or settings.groq_model,
+            temperature=0.0,
+            max_tokens=200,
+        )
+    finally:
+        llm_service.clear_current_step()
 
     import json
     content = result.get("content", "")

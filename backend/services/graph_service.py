@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from functools import lru_cache
@@ -84,6 +85,11 @@ def execute_query(
             len(rows),
             duration_ms,
         )
+        try:
+            sample = rows[:3]
+            logger.info("KG [%s] sample rows: %s", query_def.id, json.dumps(sample, default=str))
+        except Exception:
+            logger.debug("Could not serialize sample rows for logging")
 
         return {
             "rows": rows,

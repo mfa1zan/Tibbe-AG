@@ -5,6 +5,7 @@ Uses the Groq API (OpenAI-compatible) via httpx.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import re
@@ -19,32 +20,60 @@ logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
+# Per-request API call counter (context-local)
+_api_call_count: contextvars.ContextVar[int] = contextvars.ContextVar("api_call_count", default=0)
+
+# Optional context var to tag the current pipeline step for logs
+_current_step: contextvars.ContextVar[str] = contextvars.ContextVar("current_step", default="")
+
+
+def reset_api_call_count() -> None:
+    """Reset the per-request API call counter to zero."""
+    _api_call_count.set(0)
+
+
+def get_api_call_count() -> int:
+    """Return current per-request API call count."""
+    return _api_call_count.get()
+
+
+def set_current_step(step: str) -> None:
+    """Set a short tag describing the current pipeline step for logging (e.g. 'Step 1')."""
+    try:
+        _current_step.set(step or "")
+    except Exception:
+        pass
+
+
+def clear_current_step() -> None:
+    """Clear the current pipeline step tag."""
+    try:
+        _current_step.set("")
+    except Exception:
+        pass
+
 
 def _should_log_llm_trace() -> bool:
     """Return True when detailed LLM request/response logging is enabled."""
     settings = get_settings()
-    return settings.debug_trace or logger.isEnabledFor(logging.DEBUG)
+    # Keep for compatibility but prefer always-on structured LLM logging.
+    return True
 
 
 def _log_llm_messages(model: str, messages: list[dict[str, str]], *, temperature: float, max_tokens: int) -> None:
     """Log the exact request payload sent to the LLM provider."""
-    logger.info(
-        "LLM request [%s] temperature=%.2f max_tokens=%d messages=%d",
-        model,
-        temperature,
-        max_tokens,
-        len(messages),
-    )
+    step = _current_step.get() or None
+    if step:
+        logger.info("----- Input to LLM (%s) [%s] -----", model, step)
+    else:
+        logger.info("----- Input to LLM (%s) -----", model)
+    logger.info("temperature=%.2f max_tokens=%d messages=%d", temperature, max_tokens, len(messages))
     for index, message in enumerate(messages, start=1):
         role = message.get("role", "unknown")
-        content = message.get("content", "")
-        logger.info(
-            "LLM request [%s] message %d role=%s\n%s",
-            model,
-            index,
-            role,
-            content,
-        )
+        content = message.get("content", "") or ""
+        single_line = content.replace("\n", " ")
+        logger.info("[%d] role=%s: %s", index, role, single_line)
+    logger.info("----- End Input to LLM (%s) -----", model)
 
 
 def _call_llm(
@@ -66,6 +95,10 @@ def _call_llm(
 
     t0 = time.perf_counter()
     try:
+        # increment per-request API call counter
+        count = _api_call_count.get() + 1
+        _api_call_count.set(count)
+
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.post(
                 f"{settings.groq_base_url}/chat/completions",
@@ -86,22 +119,33 @@ def _call_llm(
         duration_ms = round((time.perf_counter() - t0) * 1000, 1)
         content = data["choices"][0]["message"]["content"]
 
-        logger.info("LLM [%s] → %d chars (%.0fms)", use_model, len(content), duration_ms)
-        if _should_log_llm_trace():
-            logger.info("LLM response [%s]\n%s", use_model, content)
+        step = _current_step.get() or None
+        if step:
+            logger.info("***** Output from LLM (%s) [%s] *****", use_model, step)
+        else:
+            logger.info("***** Output from LLM (%s) *****", use_model)
+        logger.info("chars=%d duration_ms=%.0f api_call_index=%d", len(content), duration_ms, _api_call_count.get())
+        logger.info("%s", content)
+        logger.info("***** End Output from LLM (%s) *****", use_model)
         return {
             "content": content,
             "model": use_model,
             "duration_ms": duration_ms,
+            "api_call_count": _api_call_count.get(),
         }
     except Exception as exc:
         duration_ms = round((time.perf_counter() - t0) * 1000, 1)
-        logger.exception("LLM call failed [%s] (%.0fms): %s", use_model, duration_ms, exc)
+        step = _current_step.get() or None
+        if step:
+            logger.exception("LLM call failed [%s] [%s] (%.0fms)", use_model, step, duration_ms)
+        else:
+            logger.exception("LLM call failed [%s] (%.0fms)", use_model, duration_ms)
         return {
             "content": "",
             "model": use_model,
             "duration_ms": duration_ms,
             "error": str(exc),
+            "api_call_count": _api_call_count.get(),
         }
 
 
@@ -375,5 +419,6 @@ def generate_answer(
         "model": result.get("model"),
         "duration_ms": result.get("duration_ms"),
         "error": result.get("error"),
+        "api_call_count": result.get("api_call_count", 0),
     }
 
