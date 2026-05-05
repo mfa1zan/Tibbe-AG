@@ -173,139 +173,59 @@ def _compose_multi_segment_answer(
     strict_mode: bool,
     history: list[dict[str, str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Build a separated answer with one section per segment + a combined guidance section."""
-    section_outputs: list[tuple[str, str]] = []
-    intent_label_map = {
-        "ingredient_treatment": "Diseases Treated",
-        "ingredient_compounds": "Chemical Composition",
-        "ingredient_substitute": "Pharmaceutical Drug Equivalents",
-        "ingredient_drug_mapping": "Drug Mapping",
-        "disease_treatment": "Natural Remedies",
-        "disease_drug": "Pharmaceutical Drugs",
-        "disease_full_chain": "Full Treatment Chain",
-        "hadith_info": "Prophetic References",
-        "drug_substitute": "Natural Alternatives",
-        "compound_search": "Ingredients Containing Compound",
-        "drug_book": "Drug Reference",
-        "drug_count": "Drug Count",
-        "general": "General Information",
-    }
-
-    ingredient_intents = {
-        "ingredient_treatment",
-        "ingredient_compounds",
-        "ingredient_substitute",
-        "ingredient_drug_mapping",
-        "drug_count",
-    }
-    disease_intents = {
-        "disease_treatment",
-        "disease_drug",
-        "disease_full_chain",
-        "hadith_info",
-    }
-
-    def _shared_entity_value(entity_key: str) -> str | None:
-        values: list[str] = []
-        for segment in routed_segments:
-            entities = segment.get("entities", {}) if isinstance(segment, dict) else {}
-            if not isinstance(entities, dict):
-                return None
-            value = entities.get(entity_key)
-            if not isinstance(value, str) or not value.strip():
-                return None
-            values.append(value.strip())
-        if values and all(val == values[0] for val in values):
-            return values[0]
-        return None
-
-    same_entity_multi_intent = False
-    if len(routed_segments) > 1:
-        same_entity_multi_intent = any(
-            _shared_entity_value(key) for key in ("disease", "ingredient", "drug")
-        )
-
-    intent_list = [
-        segment.get("intent", "general")
-        for segment in routed_segments
-        if isinstance(segment, dict)
-    ]
-    if intent_list and all(intent in ingredient_intents for intent in intent_list):
-        opening = "Based on the Knowledge Graph evidence, here is an ingredient-wise response:"
-    elif intent_list and all(intent in disease_intents for intent in intent_list):
-        opening = "Based on the Knowledge Graph evidence, here is a condition-wise response:"
-    else:
-        opening = "Based on the Knowledge Graph evidence, here is a detailed response:"
+    """Build a unified answer from all segment evidence using one LLM call."""
+    all_rows: list[dict[str, Any]] = []
+    query_names: list[str] = []
 
     for result in routed_segments:
-        db_result = result["db_result"]
+        if not isinstance(result, dict):
+            continue
+
+        db_result = result.get("db_result", {})
+        if not isinstance(db_result, dict):
+            db_result = {}
+
         rows = db_result.get("rows", []) or []
-        entities = result.get("entities", {})
+        segment_label = result.get("segment", "")
+        for row in rows:
+            merged_row = dict(row)
+            merged_row["_segment"] = segment_label
+            all_rows.append(merged_row)
 
-        disease = entities.get("disease") if isinstance(entities, dict) else None
-        ingredient = entities.get("ingredient") if isinstance(entities, dict) else None
-        drug = entities.get("drug") if isinstance(entities, dict) else None
+        query_name = db_result.get("query_name")
+        if isinstance(query_name, str) and query_name.strip():
+            query_names.append(query_name.strip())
 
-        intent = result.get("intent", "general")
-        if not isinstance(intent, str) or not intent.strip():
-            intent = "general"
+    unique_query_name = ", ".join(dict.fromkeys(query_names)) if query_names else "multi"
 
-        if same_entity_multi_intent:
-            label = intent_label_map.get(intent, intent)
-        elif isinstance(disease, str) and disease.strip():
-            label = disease.strip()
-        elif isinstance(drug, str) and drug.strip():
-            label = drug.strip()
-        elif isinstance(ingredient, str) and ingredient.strip():
-            label = ingredient.strip()
-        else:
-            label = result.get("segment", "this condition")
+    # Group rows by their evidence type based on fields present
+    disease_rows = [r for r in all_rows if "disease" in r and "hadith_text" in r]
+    compound_rows = [r for r in all_rows if "compound" in r and "source" in r and "drug" not in r]
+    drug_rows = [r for r in all_rows if "drug" in r and "mapping_strength" in r]
+    other_rows = [r for r in all_rows if r not in disease_rows and r not in compound_rows and r not in drug_rows]
 
-        if strict_mode and not rows:
-            cleaned = _STRICT_NO_DATA_MESSAGE
-        else:
-            single_answer = llm_service.generate_answer(
-                user_query=result.get("segment", user_query),
-                db_results=rows,
-                intent=result.get("intent", "general"),
-                query_name=db_result.get("query_name", ""),
-                strict_mode=strict_mode,
-                history=history,
-            ).get("answer", "")
+    # Take a balanced sample from each type — 7 rows each, capped at 20 total
+    representative_rows = (
+        disease_rows[:7] +
+        compound_rows[:7] +
+        drug_rows[:7] +
+        other_rows[:2]
+    )[:20]
 
-            cleaned = _strip_repeated_disclaimer(single_answer)
-        if not cleaned:
-            cleaned = "I could not find sufficient condition-specific evidence in the knowledge graph."
-
-        section_outputs.append((label, cleaned))
-
-    section_text = "\n\n".join(
-        [f"For {label}:\n{content}" for label, content in section_outputs]
+    llm_result = llm_service.generate_answer(
+        user_query=user_query,
+        db_results=representative_rows,
+        intent="multi_query",
+        query_name=unique_query_name,
+        strict_mode=strict_mode,
+        history=history,
     )
 
-    labels = [label for label, _ in section_outputs]
-    if same_entity_multi_intent:
-        both_line = (
-            "\n\nFor a complete picture, review each section above. "
-            "Always consult a qualified healthcare professional before making "
-            "any treatment decisions."
-        )
-    elif len(labels) >= 2:
-        both_line = (
-            f"\n\nIf you are experiencing both {labels[0]} and {labels[1]}, use the condition-specific guidance above for each, "
-            "and seek medical advice for an integrated treatment plan."
-        )
-    else:
-        both_line = ""
+    final_answer = llm_result.get("answer", "")
+    if not isinstance(final_answer, str) or not final_answer.strip():
+        final_answer = "PRO-MedGraph could not generate an answer. Please try rephrasing your question."
 
-    final_answer = (
-        f"{opening}\n\n"
-        f"{section_text}"
-        f"{both_line}\n\n"
-        "Medical Disclaimer: This information is for educational purposes and is not a substitute for medical diagnosis or treatment."
-    )
-
-    return final_answer, {"answer": final_answer, "model": "composed-multi-segment", "duration_ms": 0, "api_call_count": get_api_call_count()}
+    return final_answer, llm_result
 
 
 async def _run_graph_retrieval_for_segment(segment: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
