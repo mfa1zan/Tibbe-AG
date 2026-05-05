@@ -269,4 +269,6 @@ npm run dev:backend
 
 ## License
 
-Add your preferred license here.
+MIT License
+
+Copyright (c) 2026 Tibbe-AG
