@@ -75,6 +75,11 @@ def _fetch_all_entity_names() -> dict[str, list[str]]:
         except Exception:
             logger.exception("Failed to fetch %s names", label)
 
+    # Only cache if at least the core labels loaded successfully
+    if not result["Disease"] and not result["Ingredient"]:
+        logger.warning("Entity cache not updated — core labels failed to load")
+        return _entity_cache if _entity_cache else result
+
     _entity_cache = result
     _cache_timestamp = now
     return result
