@@ -209,7 +209,11 @@ def extract_entities(user_query: str) -> dict[str, str | None]:
 
 # ── Answer Generation ────────────────────────────────────────────────────────
 
-
+HADITH_INTENTS = {
+    "hadith_where_mentioned", "hadith_full_citation",
+    "hadith_collection_filter", "hadith_context_type",
+    "hadith_arabic_name", "hadith_frequency", "hadith_info",
+}
 _SYSTEM_PROMPTS = {
     "ingredient_substitute": (
         "You are PRO-MedGraph, a biomedical assistant specializing in Prophetic medicine (Tibb-e-Nabawi).\n"
@@ -334,6 +338,7 @@ def generate_answer(
     Uses intent-specific prompts for better answer quality.
     Returns dict with ``answer``, ``model``, ``duration_ms``.
     """
+    
     settings = get_settings()
 
     # Pick intent-specific system prompt
@@ -371,8 +376,25 @@ def generate_answer(
             "- Keep response focused on treatment guidance and ingredients\n"
             "- You may mention reference names briefly without hyperlinks if needed\n"
         )
-
+    
     system_prompt = f"{base_system_prompt}\n{mode_instructions}\n{source_policy}"
+    if intent in HADITH_INTENTS:
+        system_prompt = """You are an expert in Tibb-e-Nabawi (Prophetic Medicine).
+        Answer using ONLY the KG context provided.
+        Always include the formal citation (Collection + Hadith Number).
+        If hadith_number is 'TBD', say "citation pending scholar verification".
+
+        ANSWER FORMAT:
+        1. Food mentioned: <name> (Arabic: <arabic_term>)
+        2. Hadith reference(s):
+        - Narrator: ...
+        - Collection: ..., Book: ..., Hadith No: ...
+        - Context: <Medicinal / Dietary / Spiritual>
+        - Disease/benefit: ...
+        - Full text: "..."
+        3. Traditional interpretation: <what the Hadith says>
+
+        Only use information from the KG context. Do not add external knowledge."""
 
     # Compact the DB results for the prompt
     evidence_text = json.dumps(db_results[:20], indent=2, default=str)

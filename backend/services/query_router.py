@@ -34,6 +34,14 @@ INTENT_INGREDIENT_SUBSTITUTE = "ingredient_substitute"
 INTENT_COMPOUND_SEARCH = "compound_search"
 INTENT_GENERAL = "general"
 
+INTENT_HADITH_WHERE_MENTIONED   = "hadith_where_mentioned"
+INTENT_HADITH_FULL_CITATION     = "hadith_full_citation"
+INTENT_HADITH_COLLECTION_FILTER = "hadith_collection_filter"
+INTENT_HADITH_CONTEXT_TYPE      = "hadith_context_type"
+INTENT_HADITH_ARABIC_NAME       = "hadith_arabic_name"
+INTENT_HADITH_FREQUENCY         = "hadith_frequency"
+
+
 VALID_INTENTS = {
     INTENT_DISEASE_TREATMENT,
     INTENT_DISEASE_FULL_CHAIN,
@@ -48,6 +56,13 @@ VALID_INTENTS = {
     INTENT_INGREDIENT_SUBSTITUTE,
     INTENT_COMPOUND_SEARCH,
     INTENT_GENERAL,
+
+    INTENT_HADITH_WHERE_MENTIONED,
+    INTENT_HADITH_FULL_CITATION,
+    INTENT_HADITH_COLLECTION_FILTER,
+    INTENT_HADITH_CONTEXT_TYPE,
+    INTENT_HADITH_ARABIC_NAME,
+    INTENT_HADITH_FREQUENCY,
 }
 
 # ── Keyword patterns (compiled once) ─────────────────────────────────────────
@@ -150,6 +165,14 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
                 "- drug_substitute: user wants natural alternatives to a drug\n"
                 "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
                 "- general: none of the above\n\n"
+                         
+                "- hadith_where_mentioned   : user asks where a food is mentioned in hadith\n"
+                "- hadith_full_citation     : user asks for formal hadith citation\n"
+                "- hadith_collection_filter : user asks which foods appear in Bukhari/Muslim\n"
+                "- hadith_context_type      : user asks if mention is medicinal/dietary/spiritual\n"
+                "- hadith_arabic_name       : user asks for Arabic name from hadith\n"
+                "- hadith_frequency         : user asks how often a food is mentioned in hadith\n"
+                
                 "KEY RULE: If the query mentions an ingredient (like honey, black seed, ginger) and asks what it cures/treats/helps, ALWAYS use ingredient_treatment — never disease_treatment.\n\n"
                 "If the user explicitly says drug(s) or medicine(s) and asks which one treats/cures a disease, ALWAYS return disease_drug — never disease_treatment.\n\n"
                 'Reply ONLY with valid JSON: {"intent": "<intent_name>", "reason": "<one line why>"}'
@@ -210,6 +233,7 @@ async def analyze_query_llm(
     drugs_str = ", ".join(entity_names.get("Drug", [])[:80])
 
     normalized_history: list[dict[str, str]] = []
+    
     for msg in history or []:
         if not isinstance(msg, dict):
             continue
@@ -249,6 +273,15 @@ async def analyze_query_llm(
                 "- drug_substitute: user wants natural alternatives to a drug\n"
                 "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
                 "- general: none of the above\n\n"
+
+                "- hadith_where_mentioned: user asks where a food/ingredient is mentioned in hadith\n"
+                "- hadith_full_citation: user asks for formal hadith citation for a food\n"
+                "- hadith_collection_filter: user asks which foods appear in Sahih Bukhari or Sahih Muslim\n"
+                "- hadith_context_type: user asks if a food mention is medicinal, dietary, or spiritual\n"
+                "- hadith_arabic_name: user asks for the Arabic name of a food from hadith\n"
+                "- hadith_frequency: user asks how often a food is mentioned in hadith\n"
+                "\n"
+
                 "KNOWN ENTITIES IN THE DATABASE:\n"
                 f"Diseases: {diseases_str}\n"
                 f"Ingredients: {ingredients_str}\n"
@@ -351,6 +384,9 @@ def route_query(
     drug = entities.get("drug")
     compound = entities.get("compound")
 
+    food_val = ingredient or entities.get("food") or ""
+
+
     # ── Disease-centric intents ──────────────────────────────────────────
     if intent == INTENT_DISEASE_FULL_CHAIN and disease:
         return "E", {"disease_name": disease}, intent
@@ -393,16 +429,37 @@ def route_query(
 
     if intent == INTENT_INGREDIENT_TREATMENT and ingredient:
         return "J", {"ingredient_name": ingredient}, intent
+    
 
-    # ── Fallback: try to use whatever entity we have ─────────────────────
+
+    # ── Obj-2: Hadith intents ─────────────────────────────────────────────
+    if intent == INTENT_HADITH_WHERE_MENTIONED:
+        return "L", {"food": food_val}, intent
+
+    if intent == INTENT_HADITH_FULL_CITATION:
+        return "M", {"food": food_val}, intent
+
+    if intent == INTENT_HADITH_COLLECTION_FILTER:
+        return "N", {}, intent
+
+    if intent == INTENT_HADITH_CONTEXT_TYPE:
+        return "O", {"food": food_val}, intent
+
+    if intent == INTENT_HADITH_ARABIC_NAME:
+        return "P", {"food": food_val}, intent
+
+    if intent == INTENT_HADITH_FREQUENCY:
+            return "Q", {"food": food_val}, intent
+
+        # ── Fallback ─────────────────────────────────────────────────────────
     if disease:
-        return "A", {"disease_name": disease}, INTENT_DISEASE_TREATMENT
+            return "A", {"disease_name": disease}, INTENT_DISEASE_TREATMENT
 
     if ingredient:
-        return "C", {"ingredient_name": ingredient}, INTENT_INGREDIENT_DRUG_MAP
+            return "C", {"ingredient_name": ingredient}, INTENT_INGREDIENT_DRUG_MAP
 
     if drug:
-        return "D1", {"drug_name": drug}, INTENT_DRUG_BOOK
+            return "D1", {"drug_name": drug}, INTENT_DRUG_BOOK
 
     logger.warning("No entity found for intent '%s' — cannot route to a query", intent)
     return None, {}, intent

@@ -189,6 +189,13 @@ def _compose_multi_segment_answer(
         "drug_book": "Drug Reference",
         "drug_count": "Drug Count",
         "general": "General Information",
+
+        "hadith_where_mentioned"   : "Prophetic References",
+        "hadith_full_citation"     : "Formal Hadith Citations",
+        "hadith_collection_filter" : "Hadith by Collection",
+        "hadith_context_type"      : "Context of Mention",
+        "hadith_arabic_name"       : "Arabic Terminology",
+        "hadith_frequency"         : "Mention Frequency",
     }
 
     ingredient_intents = {
@@ -204,6 +211,15 @@ def _compose_multi_segment_answer(
         "disease_full_chain",
         "hadith_info",
     }
+    hadith_intents = {
+    "hadith_where_mentioned",
+    "hadith_full_citation",
+    "hadith_collection_filter",
+    "hadith_context_type",
+    "hadith_arabic_name",
+    "hadith_frequency",
+    "hadith_info",   # your existing one
+}
 
     def _shared_entity_value(entity_key: str) -> str | None:
         values: list[str] = []
@@ -234,6 +250,10 @@ def _compose_multi_segment_answer(
         opening = "Based on the Knowledge Graph evidence, here is an ingredient-wise response:"
     elif intent_list and all(intent in disease_intents for intent in intent_list):
         opening = "Based on the Knowledge Graph evidence, here is a condition-wise response:"
+
+    elif intent_list and all(intent in hadith_intents for intent in intent_list):
+         opening = "Based on Prophetic tradition records in the Knowledge Graph:"
+         
     else:
         opening = "Based on the Knowledge Graph evidence, here is a detailed response:"
 

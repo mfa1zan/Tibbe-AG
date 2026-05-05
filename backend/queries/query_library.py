@@ -256,6 +256,128 @@ ORDER BY ingredient
 """,
 )
 
+# ── L. Ingredient → All Hadiths (Where Mentioned) ───────────────────────────
+
+HADITH_WHERE_MENTIONED = CypherQuery(
+    id="L",
+    name="Ingredient → All Hadith Mentions",
+    description="Get all hadiths where a food/ingredient is mentioned",
+    param_keys=("food",),
+    cypher="""\
+MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+WHERE toLower(i.name) CONTAINS toLower($food)
+RETURN
+  i.name AS Food,
+  h.narrator AS Narrator,
+  h.collection AS Collection,
+  h.hadith_number AS HadithNumber,
+  h.book AS Book,
+  h.context_type AS ContextType,
+  h.arabic_term AS ArabicTerm,
+  h.disease_ref AS DiseaseRef,
+  h.name AS HadithText
+ORDER BY h.collection
+""",
+)
+
+# ── M. Ingredient → Formal Citation ─────────────────────────────────────────
+
+HADITH_FULL_CITATION = CypherQuery(
+    id="M",
+    name="Ingredient → Formal Hadith Citation",
+    description="Get formal citation string for a food/ingredient across all hadiths",
+    param_keys=("food",),
+    cypher="""\
+MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+WHERE toLower(i.name) CONTAINS toLower($food)
+RETURN
+  i.name AS Food,
+  h.collection + ' — ' + h.book + ', Hadith ' + h.hadith_number AS FormalCitation,
+  h.narrator AS Narrator,
+  h.context_type AS ContextType,
+  h.disease_ref AS DiseaseRef,
+  h.name AS FullHadithText
+ORDER BY h.collection
+""",
+)
+
+# ── N. Collection Filter (Bukhari / Muslim only) ─────────────────────────────
+
+HADITH_COLLECTION_FILTER = CypherQuery(
+    id="N",
+    name="Ingredients in Sahih Bukhari or Sahih Muslim",
+    description="List all ingredients mentioned in the two most authenticated collections",
+    param_keys=(),
+    cypher="""\
+MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+WHERE h.collection IN ['Sahih Bukhari', 'Sahih Muslim']
+RETURN DISTINCT
+  i.name AS Food,
+  h.collection AS Collection,
+  h.hadith_number AS HadithNumber,
+  h.book AS Book,
+  h.context_type AS ContextType,
+  h.disease_ref AS DiseaseRef
+ORDER BY h.collection, i.name
+""",
+)
+
+# ── O. Context Type Filter (Medicinal / Dietary / Spiritual) ─────────────────
+
+HADITH_CONTEXT_TYPE = CypherQuery(
+    id="O",
+    name="Ingredient → Hadith Context Type",
+    description="Return hadiths for a food filtered by context type (medicinal/dietary/spiritual)",
+    param_keys=("food",),
+    cypher="""\
+    MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+    WHERE toLower(i.name) CONTAINS toLower($food)
+    RETURN
+    h.context_type AS ContextType,
+    h.narrator AS Narrator,
+    h.collection AS Collection,
+    h.hadith_number AS HadithNumber,
+    h.name AS HadithText
+    ORDER BY h.context_type
+    """,
+)
+
+# ── P. Arabic Term Lookup ────────────────────────────────────────────────────
+
+HADITH_ARABIC_NAME = CypherQuery(
+    id="P",
+    name="Ingredient → Arabic Term via Hadith",
+    description="Look up the Arabic name of a food as recorded in hadith sources",
+    param_keys=("food",),
+    cypher="""\
+    MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+    WHERE toLower(i.name) CONTAINS toLower($food)
+    RETURN DISTINCT
+    i.name AS Food,
+    h.arabic_term AS ArabicName,
+    h.collection + ' ' + h.hadith_number AS Citation,
+    h.book AS Book,
+    h.narrator AS Narrator
+    ORDER BY h.collection
+    """,
+)
+
+# ── Q. Mention Frequency per Collection ──────────────────────────────────────
+
+HADITH_FREQUENCY = CypherQuery(
+    id="Q",
+    name="Ingredient → Mention Frequency by Collection",
+    description="Count how many times a food is mentioned per hadith collection",
+    param_keys=("food",),
+    cypher="""\
+    MATCH (i:Ingredient)-[:MENTIONED_IN]->(h:Hadith)
+    WHERE toLower(i.name) CONTAINS toLower($food)
+    RETURN
+    h.collection AS Collection,
+    count(h) AS MentionCount
+    ORDER BY MentionCount DESC
+    """,
+)
 
 # ── Lookup by ID ─────────────────────────────────────────────────────────────
 
@@ -274,5 +396,13 @@ ALL_QUERIES: dict[str, CypherQuery] = {
         COUNT_DRUGS_FOR_INGREDIENT,
         INGREDIENT_DISEASE_TREATMENT,
         COMPOUND_INGREDIENTS,
+        
+        # ── Obj-2: Hadith / Tibb-e-Nabawi ──
+        HADITH_WHERE_MENTIONED,
+        HADITH_FULL_CITATION,
+        HADITH_COLLECTION_FILTER,
+        HADITH_CONTEXT_TYPE,
+        HADITH_ARABIC_NAME,
+        HADITH_FREQUENCY,
     ]
 }
