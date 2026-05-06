@@ -253,6 +253,8 @@ async def analyze_query_llm(
                 "- Tasks must only use intents from the list above\n"
                 "- If the query is simple or single-intent, return exactly one task\n"
                 "- Cap tasks at 4 maximum\n\n"
+                "KEY RULE: If the query mentions an ingredient (like honey, black seed, ginger) and asks what it cures/treats/helps, ALWAYS use ingredient_treatment — never disease_treatment.\n\n"
+                "If the user explicitly says drug(s) or medicine(s) and asks which one treats/cures a disease, ALWAYS return disease_drug — never disease_treatment.\n\n"
                 "OUTPUT FORMAT (JSON only):\n"
                 "{\"tasks\": [{\"intent\": \"...\", \"sub_question\": \"...\"}]}"
             ),
