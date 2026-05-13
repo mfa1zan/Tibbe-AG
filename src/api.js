@@ -17,8 +17,25 @@ export const CHAT_API_ERROR_CODE = {
   RATE_LIMIT: 'rate_limit',
   SERVER: 'server',
   CLIENT: 'client',
-  INVALID_PAYLOAD: 'invalid_payload'
+  INVALID_PAYLOAD: 'invalid_payload',
+  UNAUTHORIZED: 'unauthorized'
 };
+
+/**
+ * Handle 401 Unauthorized responses (token expired)
+ * Clears session and redirects to login
+ */
+function handleUnauthorized() {
+  // Clear auth token and session data
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_token_expiry');
+  
+  // Redirect to login page
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login?reason=session_expired';
+  }
+}
+
 
 export class ChatApiError extends Error {
   constructor(message, { code, status = null, retriable = false, details = null } = {}) {
@@ -118,7 +135,7 @@ function sleep(ms, signal) {
 }
 
 export async function sendMessageToChatApi(message, options = {}) {
-  const { history = [], signal, strictMode = false } = options;
+  const { history = [], signal, strictMode = false, sessionId } = options;
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30_000);
@@ -126,12 +143,17 @@ export async function sendMessageToChatApi(message, options = {}) {
 
   let response;
   try {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     response = await fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query: message, history, strict_mode: strictMode }),
+      headers,
+      body: JSON.stringify({ query: message, history, strict_mode: strictMode, session_id: sessionId }),
       signal: combinedSignal
     });
   } catch (error) {
@@ -159,6 +181,16 @@ export async function sendMessageToChatApi(message, options = {}) {
   }
 
   if (!response.ok) {
+    // Handle token expiration
+    if (response.status === 401) {
+      handleUnauthorized();
+      throw new ChatApiError('Session expired. Please log in again.', {
+        code: CHAT_API_ERROR_CODE.UNAUTHORIZED,
+        status: response.status,
+        retriable: false
+      });
+    }
+
     if (response.status === 429) {
       throw new ChatApiError('Rate limit reached', {
         code: CHAT_API_ERROR_CODE.RATE_LIMIT,
@@ -244,4 +276,161 @@ export async function streamMessageToChatApi(message, options = {}) {
   }
 
   return response;
+}
+
+/**
+ * Helper to check for 401 responses in API calls
+ * Handles token expiration and redirects to login
+ */
+function checkUnauthorized(response) {
+  if (response.status === 401) {
+    handleUnauthorized();
+  }
+  return response;
+}
+
+// ── Session Management ─────────────────────────────────────────────────────
+
+export async function listSessions() {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch('/api/sessions', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to list sessions: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export async function createSession(title = null) {
+  const token = localStorage.getItem('auth_token');
+  const body = title ? JSON.stringify({ title }) : JSON.stringify({});
+  const response = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body,
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to create session: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export async function deleteSession(sessionId) {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`/api/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete session: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export async function deleteEmptySessions() {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`/api/sessions`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete empty sessions: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+
+export async function updateSession(sessionId, updates) {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to update session: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export async function getSessionMessages(sessionId) {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`/api/sessions/${sessionId}/messages`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  checkUnauthorized(response);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get session messages: ${response.status}`);
+  }
+
+  const messages = await response.json();
+  return messages.map(msg => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    confidenceScore: msg.confidence_score,
+    evidenceStrength: msg.evidence_strength,
+    graphPathsUsed: msg.graph_paths_used,
+    safety: msg.safety,
+    reasoningTrace: msg.reasoning_trace,
+    structuredFields: msg.structured_fields,
+    variant: msg.variant,
+    createdAt: msg.created_at,
+  }));
+}
+
+export async function addMessageToSession(sessionId, role, content, metadata = null) {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`/api/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role, content, metadata }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to add message: ${response.status}`);
+  }
+
+  return await response.json();
 }

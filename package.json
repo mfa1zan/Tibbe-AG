@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:frontend": "vite",
-    "dev:backend": "./.venv/bin/python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8010",
+    "dev:backend": "python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8010",
     "dev:full": "concurrently -k -n frontend,backend \"npm run dev:frontend\" \"npm run dev:backend\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

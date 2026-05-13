@@ -1,11 +1,14 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi } from './api';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CHAT_API_ERROR_CODE, normalizeChatError, streamMessageToChatApi, listSessions, createSession, deleteSession, deleteEmptySessions, getSessionMessages, updateSession } from './api';
 import './App.css';
 
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 
 const createMessage = (role, content, metadata = {}) => ({
   id: crypto.randomUUID(),
@@ -94,6 +97,15 @@ function MoreActionsIcon() {
   );
 }
 
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20">
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 20C4 16.6863 7.13401 14 11 14H13C16.866 14 20 16.6863 20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /* ─── Helpers ─── */
 
 function sanitizeStoredMessages(rawValue) {
@@ -120,50 +132,46 @@ function sanitizeStoredMessages(rawValue) {
   return sanitized.length > 0 ? sanitized : null;
 }
 
-function loadSessions() {
+async function loadSessions() {
   try {
-    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    const sessions = await listSessions();
+    return sessions.map(session => ({
+      id: session.id,
+      title: session.title,
+      createdAt: session.created_at,
+      updatedAt: session.updated_at,
+    }));
+  } catch (error) {
+    console.error('Failed to load sessions:', error);
     return [];
   }
 }
 
-function saveSessions(sessions) {
-  try {
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
-  } catch {
-    /* noop */
-  }
+async function saveSessions(sessions) {
+  // Sessions are now managed by the backend, no need to save locally
+  // This function is kept for compatibility but does nothing
 }
 
-function loadMessagesForChat(chatId) {
+async function loadMessagesForChat(chatId) {
   try {
-    const raw = localStorage.getItem(chatMessagesKey(chatId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return sanitizeStoredMessages(parsed) ?? [];
-  } catch {
+    const messages = await getSessionMessages(chatId);
+    return sanitizeStoredMessages(messages);
+  } catch (error) {
+    console.error('Failed to load messages for chat:', error);
     return [];
   }
 }
 
 function saveMessagesForChat(chatId, messages) {
-  try {
-    const persistable = messages.filter((m) => !m.isStreaming);
-    localStorage.setItem(chatMessagesKey(chatId), JSON.stringify(persistable));
-  } catch {
-    /* noop */
-  }
+  // Messages are now saved automatically by the chat API
+  // This function is kept for compatibility but does nothing
 }
 
-function deleteChat(chatId) {
+async function deleteChat(chatId) {
   try {
-    localStorage.removeItem(chatMessagesKey(chatId));
-  } catch {
-    /* noop */
+    await deleteSession(chatId);
+  } catch (error) {
+    console.error('Failed to delete chat:', error);
   }
 }
 
@@ -173,6 +181,16 @@ function loadInitialStrictMode() {
   } catch {
     return false;
   }
+}
+
+async function getGravatarUrl(email) {
+  const normalized = email.trim().toLowerCase();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalized);
+  const hashBuffer = await crypto.subtle.digest('MD5', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=128`;
 }
 
 /** Derive a short title from the first user message. */
@@ -187,14 +205,17 @@ function deriveChatTitle(messageText) {
 function App() {
   return (
     <ThemeProvider>
-      <AppShell />
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
 
 function AppShell() {
+  const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState(loadSessions);
+  const [sessions, setSessions] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null); // null = welcome screen
   const [messages, setMessages] = useState([]);
   const [strictMode, setStrictMode] = useState(loadInitialStrictMode);
@@ -204,8 +225,37 @@ function AppShell() {
   const [inputValue, setInputValue] = useState('');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [openActionsMenuChatId, setOpenActionsMenuChatId] = useState(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState('');
   const messagesRef = useRef(messages);
   const requestAbortRef = useRef(null);
+
+  // Load sessions when user changes
+  useEffect(() => {
+    if (user) {
+      setActiveChatId(null);
+      setMessages([]);
+      setInputValue('');
+      setError('');
+      setIsLoading(false);
+      setHasStreamedToken(false);
+      
+      // Clean up any empty sessions and then load the remaining sessions
+      deleteEmptySessions()
+        .catch((error) => console.error('Failed to clean up empty sessions:', error))
+        .finally(() => {
+          loadSessions().then(setSessions).catch(console.error);
+        });
+    } else {
+      setSessions([]);
+      setActiveChatId(null);
+      setMessages([]);
+      setInputValue('');
+      setError('');
+      setIsLoading(false);
+      setHasStreamedToken(false);
+    }
+  }, [user]);
 
   // Keep messagesRef in sync
   useEffect(() => {
@@ -231,6 +281,32 @@ function AppShell() {
   // Cleanup abort on unmount
   useEffect(() => () => requestAbortRef.current?.abort(), []);
 
+  useEffect(() => {
+    let mounted = true;
+    if (!user?.email) {
+      setProfileImageUrl('');
+      return;
+    }
+
+    getGravatarUrl(user.email).then((url) => {
+      if (mounted) {
+        setProfileImageUrl(url);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return undefined;
+
+    const handleDocumentClick = () => setIsProfileMenuOpen(false);
+    document.addEventListener('click', handleDocumentClick);
+    return () => document.removeEventListener('click', handleDocumentClick);
+  }, [isProfileMenuOpen]);
+
   // Sorted sessions (most recent first)
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
@@ -239,22 +315,48 @@ function AppShell() {
 
   /* ─── Handlers ─── */
 
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback(async () => {
     requestAbortRef.current?.abort();
-    setActiveChatId(null);
+    setError('');
+    // Don't create a session immediately - just prepare an empty chat
+    // The session will be created when the first message is sent
+    setActiveChatId(null); // Use a temporary ID to indicate a new unsaved chat
     setMessages([]);
     setIsLoading(false);
     setHasStreamedToken(false);
-    setError('');
     setInputValue('');
     navigate('/chat');
   }, [navigate]);
 
-  const handleSelectChat = useCallback((chatId) => {
+  const handleLogout = useCallback(async () => {
+    // Clean up any empty sessions before logout
+    try {
+      await deleteEmptySessions();
+    } catch (error) {
+      console.error('Failed to clean up empty sessions:', error);
+      // Continue with logout even if cleanup fails
+    }
+    logout();
+    setIsProfileMenuOpen(false);
+    navigate('/login');
+  }, [logout, navigate]);
+
+  const toggleProfileMenu = useCallback((event) => {
+    event.stopPropagation();
+    setIsProfileMenuOpen((current) => !current);
+  }, []);
+
+  const handleSelectChat = useCallback(async (chatId) => {
     requestAbortRef.current?.abort();
     setOpenActionsMenuChatId(null);
     setActiveChatId(chatId);
-    setMessages(loadMessagesForChat(chatId));
+    try {
+      const chatMessages = await loadMessagesForChat(chatId);
+      setMessages(chatMessages);
+    } catch (error) {
+      console.error('Failed to load chat messages:', error);
+      setMessages([]);
+    }
     setIsLoading(false);
     setHasStreamedToken(false);
     setError('');
@@ -263,22 +365,22 @@ function AppShell() {
   }, [navigate]);
 
   const handleDeleteChat = useCallback(
-    (chatId, event) => {
+    async (chatId, event) => {
       event.stopPropagation();
       setOpenActionsMenuChatId(null);
-      deleteChat(chatId);
-      setSessions((prev) => {
-        const updated = prev.filter((s) => s.id !== chatId);
-        saveSessions(updated);
-        return updated;
-      });
-      // If we just deleted the active chat, go to welcome screen
-      if (activeChatId === chatId) {
-        setActiveChatId(null);
-        setMessages([]);
-        setIsLoading(false);
-        setHasStreamedToken(false);
-        setError('');
+      try {
+        await deleteChat(chatId);
+        setSessions((prev) => prev.filter((s) => s.id !== chatId));
+        // If we just deleted the active chat, go to welcome screen
+        if (activeChatId === chatId) {
+          setActiveChatId(null);
+          setMessages([]);
+          setIsLoading(false);
+          setHasStreamedToken(false);
+          setError('');
+        }
+      } catch (error) {
+        console.error('Failed to delete chat:', error);
       }
     },
     [activeChatId]
@@ -328,28 +430,20 @@ function AppShell() {
       // If no active chat, create a new session
       let currentChatId = activeChatId;
       if (!currentChatId) {
-        currentChatId = crypto.randomUUID();
-        const newSession = {
-          id: currentChatId,
-          title: deriveChatTitle(messageText),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        };
-        setActiveChatId(currentChatId);
-        setSessions((prev) => {
-          const updated = [newSession, ...prev];
-          saveSessions(updated);
-          return updated;
-        });
+        try {
+          const newSession = await createSession(deriveChatTitle(messageText));
+          currentChatId = newSession.id;
+          setActiveChatId(currentChatId);
+          setSessions((prev) => [newSession, ...prev]);
+          navigate('/chat');
+        } catch (error) {
+          console.error('Failed to create new chat session:', error);
+          setError('Failed to create new chat session');
+          setIsLoading(false);
+          return;
+        }
       } else {
-        // Update the session's updatedAt
-        setSessions((prev) => {
-          const updated = prev.map((s) =>
-            s.id === currentChatId ? { ...s, updatedAt: Date.now() } : s
-          );
-          saveSessions(updated);
-          return updated;
-        });
+        // Session will be updated automatically by the backend when messages are saved
       }
 
       setMessages((current) => [
@@ -374,6 +468,7 @@ function AppShell() {
         } = await streamMessageToChatApi(messageText, {
           history: historyForApi,
           strictMode,
+          sessionId: currentChatId,
           signal: abortController.signal,
           onChunk: (chunk) => {
             setHasStreamedToken(true);
@@ -404,6 +499,16 @@ function AppShell() {
               : item
           )
         );
+
+        try {
+          const newTitle = deriveChatTitle(messageText);
+          const updatedSession = await updateSession(currentChatId, { title: newTitle });
+          setSessions((prev) => prev.map((s) =>
+            s.id === currentChatId ? { ...s, title: updatedSession.title, updatedAt: updatedSession.updated_at } : s
+          ));
+        } catch (error) {
+          console.error('Failed to update session title:', error);
+        }
       } catch (err) {
         const normalizedError = normalizeChatError(err);
         setMessages((current) => {
@@ -444,12 +549,21 @@ function AppShell() {
 
   const isWelcomeScreen = activeChatId === null;
 
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <main className="app-shell">
-      <aside
-        className={`app-sidebar ${isSidebarExpanded ? 'app-sidebar-expanded' : 'app-sidebar-collapsed'}`}
-        aria-label="Primary navigation"
-      >
+    <main className={`app-shell ${!user ? 'app-shell-auth' : ''}`}>
+      {user && (
+        <aside
+          className={`app-sidebar ${isSidebarExpanded ? 'app-sidebar-expanded' : 'app-sidebar-collapsed'}`}
+          aria-label="Primary navigation"
+        >
         {/* ── Top: logo + brand ── */}
         <div className="app-sidebar-top">
           <button
@@ -544,28 +658,71 @@ function AppShell() {
         ) : null}
 
         {/* ── Settings at the bottom ── */}
-        <nav className="app-sidebar-bottom" aria-label="Settings">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-            title="Settings"
-          >
-            <span className="app-nav-icon" aria-hidden="true"><SettingsIcon /></span>
-            {isSidebarExpanded ? <span className="app-nav-label">Settings</span> : null}
-          </NavLink>
+        <nav className="app-sidebar-bottom" aria-label="User navigation">
+          <div className="app-nav">
+            <NavLink
+              to="/settings"
+              className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
+              title="Settings"
+            >
+              <span className="app-nav-icon" aria-hidden="true"><SettingsIcon /></span>
+              {isSidebarExpanded ? <span className="app-nav-label">Settings</span> : null}
+            </NavLink>
+
+            <div className="app-profile-bottom-group" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className={`app-nav-link app-profile-bottom-button ${isProfileMenuOpen ? 'app-nav-link-active' : ''}`}
+                aria-haspopup="menu"
+                aria-expanded={isProfileMenuOpen}
+                onClick={toggleProfileMenu}
+                title="Open profile menu"
+              >
+                <span className="app-nav-icon" aria-hidden="true">
+                  {profileImageUrl ? (
+                    <img className="app-profile-avatar" src={profileImageUrl} alt="Profile avatar" />
+                  ) : (
+                    <ProfileIcon />
+                  )}
+                </span>
+                {isSidebarExpanded ? <span className="app-nav-label">{user?.display_name || 'Profile'}</span> : null}
+              </button>
+
+              {isProfileMenuOpen ? (
+                <div className="app-profile-menu app-profile-menu-bottom" role="menu" aria-label="User profile menu">
+                  <div className="app-profile-menu-item">
+                    <span>Email</span>
+                    <strong>{user?.email}</strong>
+                  </div>
+                  <button type="button" className="app-profile-menu-logout" onClick={handleLogout}>
+                    Logout
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </nav>
       </aside>
+      )}
 
       <section className="app-main">
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route
               path="/"
-              element={<Navigate to="/chat" replace />}
+              element={<Navigate to={user ? "/chat" : "/login"} replace />}
+            />
+            <Route
+              path="/login"
+              element={user ? <Navigate to="/chat" replace /> : <LoginPage />}
+            />
+            <Route
+              path="/register"
+              element={user ? <Navigate to="/chat" replace /> : <RegisterPage />}
             />
             <Route
               path="/chat"
-              element={
+              element={user ? (
                 <ChatPage
                   messages={messages}
                   isLoading={isLoading}
@@ -578,18 +735,18 @@ function AppShell() {
                   onSendMessage={handleSendMessage}
                   onCancelGeneration={handleCancelGeneration}
                 />
-              }
+              ) : <Navigate to="/login" replace />}
             />
             <Route
               path="/settings"
-              element={
+              element={user ? (
                 <SettingsPage
                   strictMode={strictMode}
                   onStrictModeChange={setStrictMode}
                 />
-              }
+              ) : <Navigate to="/login" replace />}
             />
-            <Route path="*" element={<Navigate to="/chat" replace />} />
+            <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
           </Routes>
         </Suspense>
       </section>

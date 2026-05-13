@@ -33,3 +33,23 @@
 .chat-jump-to-bottom {
   @apply absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-slate-900 text-xl text-white shadow-lg transition hover:bg-slate-800 dark:border-slate-700;
 }
+
+.chat-empty-state {
+  @apply flex h-full items-center justify-center;
+}
+
+.chat-empty-content {
+  @apply text-center;
+}
+
+.chat-empty-icon {
+  @apply text-6xl mb-4;
+}
+
+.chat-empty-title {
+  @apply text-xl font-semibold text-slate-900 mb-2 dark:text-slate-100;
+}
+
+.chat-empty-subtitle {
+  @apply text-slate-600 dark:text-slate-400 max-w-md;
+}

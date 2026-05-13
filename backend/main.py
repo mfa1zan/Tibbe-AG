@@ -18,6 +18,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
     logger.info("GraphRAG backend started (clean architecture)")
+    # Create database tables
+    from backend.db.database import create_tables
+    create_tables()
     yield
     close_driver()
     logger.info("GraphRAG backend shutdown")
@@ -38,8 +41,10 @@ app.add_middleware(
 )
 
 # ── Mount API routes ─────────────────────────────────────────────────────────
+from backend.api.auth import router as auth_router  # noqa: E402
 from backend.api.chat import router as chat_router  # noqa: E402
 
+app.include_router(auth_router)
 app.include_router(chat_router)
 
 
