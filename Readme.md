@@ -68,7 +68,7 @@ Tibbe-AG/
 ### 1) Clone
 
 ```bash
-git clone https://github.com/mfa1zan/Tibbe-AG
+git clone https://github.com/mfa1zan/Tibbe-AG.git
 cd Tibbe-AG
 ```
 
