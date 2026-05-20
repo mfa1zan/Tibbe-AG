@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     debug_trace: bool = False
 
     model_config = SettingsConfigDict(
-        env_file=(BASE_DIR / ".env", ".env"),
+        env_file=(BASE_DIR / ".env",),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

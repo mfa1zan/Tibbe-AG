@@ -141,22 +141,61 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
             "content": (
                 "You are an intent classifier for a Prophetic medicine knowledge graph chatbot.\n"
                 "Given a user query and the detected entities, return the single best intent as JSON.\n\n"
-                "INTENT OPTIONS:\n"
-                "- disease_treatment: user asks what food item or (natural) ingredient treats/cures a disease\n"
-                "- disease_full_chain: user wants the full chain for a disease\n"
-                "- disease_drug: user asks which drug/medicine treats or cures a disease\n"
-                "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
-                "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
-                "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
-                "- compound_search: user asks which ingredient/food contains a specific chemical compound or nutrient\n"
-                "- drug_book: user wants drug reference/source info\n"
-                "- hadith_info: user asks for hadith or prophetic references\n"
-                "- drug_count: user asks how many drugs are linked to an ingredient\n"
-                "- drug_substitute: user wants natural alternatives to a drug\n"
-                "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
-                "- general: none of the above\n\n"
-                "KEY RULE: If the query mentions an ingredient (like honey, black seed, ginger) and asks what it cures/treats/helps, ALWAYS use ingredient_treatment — never disease_treatment.\n\n"
-                "If the user explicitly says drug(s) or medicine(s) and asks which one treats/cures a disease, ALWAYS return disease_drug — never disease_treatment.\n\n"
+                "CLASSIFICATION STEPS - follow in order:\n"
+                "1. What is the SUBJECT of the question? (the thing the user is asking ABOUT)\n"
+                "2. If subject is a DISEASE -> consider: disease_treatment, disease_drug, disease_full_chain\n"
+                "3. If subject is an INGREDIENT -> consider: ingredient_treatment, ingredient_compounds, ingredient_substitute\n"
+                "4. If subject is a DRUG -> consider: drug_substitute, drug_book\n"
+                "5. If subject is a CHEMICAL, NUTRIENT, MINERAL, or VITAMIN -> compound_search\n"
+                "6. If user says 'drug', 'medicine', 'tablet', 'capsule' explicitly -> disease_drug (NOT disease_treatment)\n"
+                "7. If user says 'instead of', 'replace', 'alternative' -> check direction:\n"
+                "   ingredient -> drug = ingredient_substitute | drug -> natural = drug_substitute\n\n"
+                "INTENT OPTIONS (read carefully - these are easy to confuse):\n"
+                "- disease_treatment: User asks what NATURAL INGREDIENT or FOOD treats/cures a DISEASE.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'What treats diabetes?' / 'What is good for fever?' / 'Remedies for headache'\n"
+                "  NEVER use this if the subject is an ingredient. NEVER use this if user says drug/medicine.\n\n"
+                "- ingredient_treatment: User asks what DISEASES or CONDITIONS a specific INGREDIENT cures/treats/helps.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What does honey cure?' / 'What is black seed good for?' / 'What diseases does ginger treat?'\n"
+                "  KEY: If the SUBJECT of the sentence is an ingredient name, ALWAYS use this - not disease_treatment.\n\n"
+                "- disease_drug: User asks which PHARMACEUTICAL DRUG or MEDICINE treats a DISEASE.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'Which drugs treat malaria?' / 'What medicines cure fever?' / 'Tablets for diabetes'\n"
+                "  KEY: Only use when user explicitly says 'drug', 'medicine', 'pharmaceutical', 'tablet', or 'capsule'.\n\n"
+                "- disease_full_chain: User wants the COMPLETE CHAIN from disease to ingredients to compounds to drugs.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'Show full chain for diabetes' / 'Complete treatment path for fever' / 'Explain everything about malaria treatment'\n\n"
+                "- ingredient_compounds: User asks about the CHEMICAL COMPOSITION or COMPOUNDS inside an ingredient.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What chemicals are in honey?' / 'What compounds does black seed contain?' / 'Chemical makeup of ginger'\n\n"
+                "- ingredient_drug_mapping: User asks which DRUGS share compounds with an ingredient - no substitution framing.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What drugs are equivalent to honey?' / 'Map honey to pharmaceutical drugs'\n\n"
+                "- ingredient_substitute: User wants DRUGS TO USE INSTEAD OF a natural ingredient. Direction: ingredient -> drug.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What drug can replace honey?' / 'Drugs instead of black seed' / 'Pharmaceutical alternative to henna'\n\n"
+                "- drug_substitute: User wants NATURAL INGREDIENTS as alternatives to a DRUG. Direction: drug -> ingredient.\n"
+                "  Entity needed: drug.\n"
+                "  Examples: 'Natural alternative to paracetamol' / 'What can replace ibuprofen naturally?' / 'Herbal substitute for aspirin'\n\n"
+                "- compound_search: User asks which INGREDIENT or FOOD CONTAINS a specific CHEMICAL COMPOUND, NUTRIENT, MINERAL, or VITAMIN.\n"
+                "  Entity needed: compound.\n"
+                "  Examples: 'Which foods contain potassium?' / 'What ingredient has vitamin C?' / 'Which herb contains quercetin?'\n\n"
+                "- hadith_info: User explicitly asks for HADITH, SUNNAH, or PROPHETIC REFERENCES.\n"
+                "  Examples: 'What does the hadith say about honey?' / 'Prophetic references for black seed' / 'Sunnah remedy for fever'\n\n"
+                "- drug_book: User asks for a drug SOURCE, BOOK, or DOWNLOAD LINK.\n"
+                "  Entity needed: drug.\n"
+                "  Examples: 'Where is paracetamol mentioned?' / 'Source book for ibuprofen'\n\n"
+                "- drug_count: User asks HOW MANY drugs are linked to an ingredient.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'How many drugs does honey map to?' / 'Count drugs for black seed'\n\n"
+                "- general: Greeting, vague question, or completely out-of-scope query. Use as last resort only.\n\n"
+                "ENTITY HINT - use detected entities to break ties:\n"
+                "- ingredient detected, no disease -> lean toward ingredient_* intents\n"
+                "- disease detected, no ingredient -> lean toward disease_* intents\n"
+                "- both detected -> check sentence direction: what is being ASKED ABOUT vs what is the ANSWER\n"
+                "- drug detected -> drug_substitute or drug_book\n"
+                "- compound/nutrient/vitamin detected -> compound_search\n\n"
                 'Reply ONLY with valid JSON: {"intent": "<intent_name>", "reason": "<one line why>"}'
             ),
         },
@@ -184,6 +223,12 @@ async def classify_intent_llm(user_query: str, entities: dict[str, str | None] |
 
         result = await asyncio.to_thread(_thread_call)
         content = result.get("content", "")
+        if not content.strip():
+            logger.warning(
+                "Intent LLM returned empty response; falling back to regex (error=%s)",
+                result.get("error"),
+            )
+            return classify_intent_regex(user_query, entities)
         cleaned = content.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
@@ -235,28 +280,67 @@ async def analyze_query_llm(
                 "- Start the response directly with '{' and end with '}'\n"
                 "- Ensure the JSON is syntactically valid and parsable by json.loads()\n\n"
                 "Return a JSON object with one key: 'tasks'.\n\n"
-                "INTENT OPTIONS:\n"
-                "- disease_treatment: user asks what food item or (natural) ingredient treats/cures a disease\n"
-                "- disease_full_chain: user wants the full chain for a disease\n"
-                "- disease_drug: user asks which drug/medicine treats or cures a disease\n"
-                "- ingredient_treatment: user asks which diseases an ingredient treats/cures\n"
-                "- ingredient_compounds: user asks about chemical composition of an ingredient\n"
-                "- ingredient_drug_mapping: user asks for drug equivalents of an ingredient\n"
-                "- compound_search: user asks which ingredient/food contains a specific chemical compound or nutrient\n"
-                "- drug_book: user wants drug reference/source info\n"
-                "- hadith_info: user asks for hadith or prophetic references\n"
-                "- drug_count: user asks how many drugs are linked to an ingredient\n"
-                "- drug_substitute: user wants natural alternatives to a drug\n"
-                "- ingredient_substitute: user wants drugs instead of a natural ingredient\n"
-                "- general: none of the above\n\n"
+                "CLASSIFICATION STEPS - follow in order:\n"
+                "1. What is the SUBJECT of the question? (the thing the user is asking ABOUT)\n"
+                "2. If subject is a DISEASE -> consider: disease_treatment, disease_drug, disease_full_chain\n"
+                "3. If subject is an INGREDIENT -> consider: ingredient_treatment, ingredient_compounds, ingredient_substitute\n"
+                "4. If subject is a DRUG -> consider: drug_substitute, drug_book\n"
+                "5. If subject is a CHEMICAL, NUTRIENT, MINERAL, or VITAMIN -> compound_search\n"
+                "6. If user says 'drug', 'medicine', 'tablet', 'capsule' explicitly -> disease_drug (NOT disease_treatment)\n"
+                "7. If user says 'instead of', 'replace', 'alternative' -> check direction:\n"
+                "   ingredient -> drug = ingredient_substitute | drug -> natural = drug_substitute\n\n"
+                "INTENT OPTIONS (read carefully - these are easy to confuse):\n"
+                "- disease_treatment: User asks what NATURAL INGREDIENT or FOOD treats/cures a DISEASE.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'What treats diabetes?' / 'What is good for fever?' / 'Remedies for headache'\n"
+                "  NEVER use this if the subject is an ingredient. NEVER use this if user says drug/medicine.\n\n"
+                "- ingredient_treatment: User asks what DISEASES or CONDITIONS a specific INGREDIENT cures/treats/helps.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What does honey cure?' / 'What is black seed good for?' / 'What diseases does ginger treat?'\n"
+                "  KEY: If the SUBJECT of the sentence is an ingredient name, ALWAYS use this - not disease_treatment.\n\n"
+                "- disease_drug: User asks which PHARMACEUTICAL DRUG or MEDICINE treats a DISEASE.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'Which drugs treat malaria?' / 'What medicines cure fever?' / 'Tablets for diabetes'\n"
+                "  KEY: Only use when user explicitly says 'drug', 'medicine', 'pharmaceutical', 'tablet', or 'capsule'.\n\n"
+                "- disease_full_chain: User wants the COMPLETE CHAIN from disease to ingredients to compounds to drugs.\n"
+                "  Entity needed: disease.\n"
+                "  Examples: 'Show full chain for diabetes' / 'Complete treatment path for fever' / 'Explain everything about malaria treatment'\n\n"
+                "- ingredient_compounds: User asks about the CHEMICAL COMPOSITION or COMPOUNDS inside an ingredient.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What chemicals are in honey?' / 'What compounds does black seed contain?' / 'Chemical makeup of ginger'\n\n"
+                "- ingredient_drug_mapping: User asks which DRUGS share compounds with an ingredient - no substitution framing.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What drugs are equivalent to honey?' / 'Map honey to pharmaceutical drugs'\n\n"
+                "- ingredient_substitute: User wants DRUGS TO USE INSTEAD OF a natural ingredient. Direction: ingredient -> drug.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'What drug can replace honey?' / 'Drugs instead of black seed' / 'Pharmaceutical alternative to henna'\n\n"
+                "- drug_substitute: User wants NATURAL INGREDIENTS as alternatives to a DRUG. Direction: drug -> ingredient.\n"
+                "  Entity needed: drug.\n"
+                "  Examples: 'Natural alternative to paracetamol' / 'What can replace ibuprofen naturally?' / 'Herbal substitute for aspirin'\n\n"
+                "- compound_search: User asks which INGREDIENT or FOOD CONTAINS a specific CHEMICAL COMPOUND, NUTRIENT, MINERAL, or VITAMIN.\n"
+                "  Entity needed: compound.\n"
+                "  Examples: 'Which foods contain potassium?' / 'What ingredient has vitamin C?' / 'Which herb contains quercetin?'\n\n"
+                "- hadith_info: User explicitly asks for HADITH, SUNNAH, or PROPHETIC REFERENCES.\n"
+                "  Examples: 'What does the hadith say about honey?' / 'Prophetic references for black seed' / 'Sunnah remedy for fever'\n\n"
+                "- drug_book: User asks for a drug SOURCE, BOOK, or DOWNLOAD LINK.\n"
+                "  Entity needed: drug.\n"
+                "  Examples: 'Where is paracetamol mentioned?' / 'Source book for ibuprofen'\n\n"
+                "- drug_count: User asks HOW MANY drugs are linked to an ingredient.\n"
+                "  Entity needed: ingredient.\n"
+                "  Examples: 'How many drugs does honey map to?' / 'Count drugs for black seed'\n\n"
+                "- general: Greeting, vague question, or completely out-of-scope query. Use as last resort only.\n\n"
                 "RULES:\n"
                 "- Tasks must only use intents from the list above\n"
                 "- If the query is simple or single-intent, return exactly one task\n"
                 "- Cap tasks at 4 maximum\n"
                 "- Each task's \"sub_question\" MUST be a full, self-contained natural-language question (not a single word or bare entity).\n"
                 "  If the user only provides an entity or fragment, reformulate it into a clear sub-question (e.g. 'What does <entity> treat?' or 'How is <entity> used for <condition>?').\n\n"
-                "KEY RULE: If the query mentions an ingredient (like honey, black seed, ginger) and asks what it cures/treats/helps, ALWAYS use ingredient_treatment — never disease_treatment.\n\n"
-                "If the user explicitly says drug(s) or medicine(s) and asks which one treats/cures a disease, ALWAYS return disease_drug — never disease_treatment.\n\n"
+                "ENTITY HINT - use detected entities to break ties:\n"
+                "- ingredient detected, no disease -> lean toward ingredient_* intents\n"
+                "- disease detected, no ingredient -> lean toward disease_* intents\n"
+                "- both detected -> check sentence direction: what is being ASKED ABOUT vs what is the ANSWER\n"
+                "- drug detected -> drug_substitute or drug_book\n"
+                "- compound/nutrient/vitamin detected -> compound_search\n\n"
                 "OUTPUT FORMAT (JSON only):\n"
                 "{\"tasks\": [{\"intent\": \"...\", \"sub_question\": \"...\"}]}"
             ),
@@ -280,6 +364,17 @@ async def analyze_query_llm(
 
         result = await asyncio.to_thread(_thread_call_analysis)
         content = result.get("content", "")
+        if not content.strip():
+            logger.warning(
+                "Query analysis LLM returned empty response; using fallback (error=%s)",
+                result.get("error"),
+            )
+            entities = resolve_entities(query, history=history)
+            intent = await classify_intent_llm(query, entities)
+            return {
+                "entities": entities,
+                "tasks": [{"intent": intent, "sub_question": query}],
+            }
         cleaned = content.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()

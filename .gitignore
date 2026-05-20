@@ -35,3 +35,29 @@ __pycache__/
 backend/logs/experiments/
 backend/.env
 backend_legacy/.env
+
+# Test / CI artifacts
+.coverage
+coverage/
+htmlcov/
+
+# Python virtual env and wheel build metadata
+pip-wheel-metadata/
+.Python
+
+# SQLite DBs and local databases
+*.db
+backend/*.db
+backend/app.db
+
+# IDE/runtime temp
+*.pid
+*.seed
+
+# storybook / build caches
+.turbo/
+.parcel-cache/
+
+# JetBrains
+/.idea/
+
