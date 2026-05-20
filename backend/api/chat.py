@@ -11,12 +11,18 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from backend.core.config import get_settings
+from backend.core.dependencies import get_current_user
 from backend.core.models import ChatRequest
+from backend.db.database import get_db
+from backend.db.models import ChatSession, ChatMessage, User
 from backend.services import (
     graph_service,
     judge_service,
@@ -35,6 +41,15 @@ from backend.services.entity_resolver import get_entity_lists, resolve_entities
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_PRIMARY_SPLIT_RE = re.compile(r"(?:\?+|;+|\n+|\b(?:also|plus|as well as)\b)", re.I)
+_AND_SPLIT_RE = re.compile(r"\band\b", re.I)
+
+_STRICT_NO_DATA_MESSAGE = (
+    "I could not find relevant information for this query in the knowledge graph database. "
+    "Strict mode is enabled, so I cannot supplement with general knowledge. "
+    "Please try rephrasing your question or ask about a specific disease, ingredient, or drug."
+)
 
 _PRIMARY_SPLIT_RE = re.compile(r"(?:\?+|;+|\n+|\b(?:also|plus|as well as)\b)", re.I)
 _AND_SPLIT_RE = re.compile(r"\band\b", re.I)
@@ -668,15 +683,307 @@ async def _run_pipeline(query: str, history: list[dict], debug: bool = False, st
     )
 
 
-@router.post("/api/chat")
-async def chat(request: ChatRequest) -> dict:
-    """Standard chat endpoint."""
+# ── Session Management Endpoints ─────────────────────────────────────────────
+
+@router.get("/api/sessions")
+async def list_sessions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> list[dict]:
+    """List all chat sessions for the current user.
+    
+    Note: Empty sessions (sessions with no messages) are excluded from the list.
+    This ensures that new chats which are created but have no messages sent are not 
+    shown in the chat history.
+    """
+    # Get sessions that have at least one message
+    sessions = db.query(ChatSession).filter(
+        ChatSession.user_id == current_user.id,
+        db.query(ChatMessage).filter(
+            ChatMessage.session_id == ChatSession.id
+        ).exists()
+    ).order_by(
+        ChatSession.updated_at.desc()
+    ).all()
+    
+    return [
+        {
+            "id": session.id,
+            "title": session.title,
+            "created_at": session.created_at.isoformat(),
+            "updated_at": session.updated_at.isoformat(),
+        }
+        for session in sessions
+    ]
+
+
+@router.post("/api/sessions")
+async def create_session(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Create a new chat session for the current user."""
     try:
-        return await _run_pipeline(
+        title = payload.get("title")
+        if not title:
+            title = "New Chat"
+        session = ChatSession(
+            user_id=current_user.id,
+            title=title,
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return {
+            "id": session.id,
+            "title": session.title,
+            "created_at": session.created_at.isoformat(),
+            "updated_at": session.updated_at.isoformat(),
+        }
+    except Exception as e:
+        logger.exception("Failed to create session")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create session: {str(e)}"
+        )
+
+
+@router.delete("/api/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a chat session and all its messages."""
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    db.delete(session)
+    db.commit()
+    return {"message": "Session deleted"}
+
+
+@router.delete("/api/sessions")
+async def delete_empty_sessions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Delete all empty sessions (sessions with no messages) for the current user.
+    
+    This is a cleanup endpoint to remove abandoned sessions that were created
+    but never had any messages sent. This can be called periodically or when
+    the user logs out.
+    """
+    from sqlalchemy import func, and_
+    
+    try:
+        # Get all sessions for the user that have no messages
+        empty_sessions = db.query(ChatSession).filter(
+            ChatSession.user_id == current_user.id
+        ).filter(
+            ~db.query(ChatMessage).filter(
+                ChatMessage.session_id == ChatSession.id
+            ).exists()
+        ).all()
+        
+        count = len(empty_sessions)
+        for session in empty_sessions:
+            db.delete(session)
+        
+        db.commit()
+        return {
+            "message": f"Deleted {count} empty session(s)",
+            "deleted_count": count
+        }
+    except Exception as e:
+        logger.exception("Failed to delete empty sessions")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete empty sessions: {str(e)}"
+        )
+
+
+
+@router.patch("/api/sessions/{session_id}")
+async def update_session(
+    session_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Update a chat session."""
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    title = payload.get("title")
+    if title is not None:
+        session.title = title
+        session.updated_at = datetime.now(timezone.utc)
+    
+    db.commit()
+    db.refresh(session)
+    return {
+        "id": session.id,
+        "title": session.title,
+        "created_at": session.created_at.isoformat(),
+        "updated_at": session.updated_at.isoformat(),
+    }
+
+
+@router.get("/api/sessions/{session_id}/messages")
+async def get_session_messages(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> list[dict]:
+    """Get all messages for a specific session."""
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    messages = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).all()
+    return [
+        {
+            "id": msg.id,
+            "role": msg.role,
+            "content": msg.content,
+            "confidence_score": msg.confidence_score,
+            "evidence_strength": msg.evidence_strength,
+            "graph_paths_used": msg.graph_paths_used,
+            "safety": msg.safety,
+            "reasoning_trace": msg.reasoning_trace,
+            "structured_fields": msg.structured_fields,
+            "variant": msg.variant,
+            "created_at": msg.created_at.isoformat(),
+        }
+        for msg in messages
+    ]
+
+
+@router.post("/api/sessions/{session_id}/messages")
+async def add_message_to_session(
+    session_id: str,
+    role: str,
+    content: str,
+    metadata: dict | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add a message to a specific session."""
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if role not in ["user", "bot"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    message = ChatMessage(
+        session_id=session_id,
+        role=role,
+        content=content,
+        confidence_score=metadata.get("confidence_score") if metadata else None,
+        evidence_strength=metadata.get("evidence_strength") if metadata else None,
+        graph_paths_used=metadata.get("graph_paths_used") if metadata else None,
+        safety=metadata.get("safety") if metadata else None,
+        reasoning_trace=metadata.get("reasoning_trace") if metadata else None,
+        structured_fields=metadata.get("structured_fields") if metadata else None,
+        variant=metadata.get("variant") if metadata else None,
+    )
+    db.add(message)
+    db.commit()
+    
+    # Update session updated_at
+    session.updated_at = message.created_at
+    db.commit()
+    
+    return {
+        "id": message.id,
+        "role": message.role,
+        "content": message.content,
+        "created_at": message.created_at.isoformat(),
+    }
+
+
+@router.post("/api/chat")
+async def chat(
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Standard chat endpoint with message persistence."""
+    try:
+        # Save user message if session_id is provided
+        if request.session_id:
+            # Verify the session exists and belongs to the user
+            session = db.query(ChatSession).filter(
+                ChatSession.id == request.session_id,
+                ChatSession.user_id == current_user.id
+            ).first()
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+            
+            user_message = ChatMessage(
+                session_id=request.session_id,
+                role="user",
+                content=request.query,
+            )
+            db.add(user_message)
+            db.commit()
+            
+            # Update session updated_at
+            session.updated_at = user_message.created_at
+            db.commit()
+        
+        response = await _run_pipeline(
             request.query,
             [m.model_dump() for m in request.history],
             strict_mode=request.strict_mode,
         )
+        
+        # Save bot response if session_id is provided
+        if request.session_id:
+            # Verify the session exists and belongs to the user
+            session = db.query(ChatSession).filter(
+                ChatSession.id == request.session_id,
+                ChatSession.user_id == current_user.id
+            ).first()
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+            
+            bot_message = ChatMessage(
+                session_id=request.session_id,
+                role="bot",
+                content=response.get("final_answer", ""),
+                confidence_score=response.get("confidence_score"),
+                evidence_strength=response.get("evidence_strength"),
+                graph_paths_used=response.get("graph_paths_used"),
+                safety=response.get("safety"),
+                reasoning_trace=response.get("reasoning_trace"),
+                structured_fields=response.get("structured_fields"),
+            )
+            db.add(bot_message)
+            db.commit()
+            
+            # Update session updated_at
+            session.updated_at = bot_message.created_at
+            db.commit()
+        
+        return response
     except Exception:
         logger.exception("/api/chat failed")
         return response_builder.build_error_response()

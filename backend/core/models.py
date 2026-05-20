@@ -21,6 +21,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
     strict_mode: bool = Field(default=False, description="When true, LLM must only use DB evidence")
+    session_id: str | None = Field(default=None, description="Optional session ID to save messages to")
 
 
 # ── Response ─────────────────────────────────────────────────────────────────

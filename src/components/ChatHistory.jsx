@@ -73,19 +73,29 @@ function ChatHistory({ messages, isTyping }) {
 
   return (
     <section className="chat-history">
-      <Virtuoso
-        ref={virtuosoRef}
-        className="chat-history-virtuoso"
-        data={messages}
-        overscan={220}
-        atBottomThreshold={SCROLL_THRESHOLD}
-        atBottomStateChange={handleBottomStateChange}
-        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
-        itemContent={(_, message) => <ChatBubble message={message} />}
-        components={{
-          Footer: () => (isTyping && !hasStreamingMessage ? <TypingIndicator /> : null)
-        }}
-      />
+      {messages.length === 0 ? (
+        <div className="chat-empty-state">
+          <div className="chat-empty-content">
+            <div className="chat-empty-icon">💬</div>
+            <h3 className="chat-empty-title">Start a conversation</h3>
+            <p className="chat-empty-subtitle">Ask any biomedical question and get answers powered by Knowledge Graph + AI</p>
+          </div>
+        </div>
+      ) : (
+        <Virtuoso
+          ref={virtuosoRef}
+          className="chat-history-virtuoso"
+          data={messages}
+          overscan={220}
+          atBottomThreshold={SCROLL_THRESHOLD}
+          atBottomStateChange={handleBottomStateChange}
+          followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+          itemContent={(_, message) => <ChatBubble message={message} />}
+          components={{
+            Footer: () => (isTyping && !hasStreamingMessage ? <TypingIndicator /> : null)
+          }}
+        />
+      )}
 
       {showJumpToBottom ? (
         <button
