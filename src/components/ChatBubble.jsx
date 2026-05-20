@@ -72,7 +72,7 @@ function ChatBubble({ message }) {
 }
 
 function StructuredFieldsCard({ fields }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const entries = Object.entries(fields)
     .filter(([, value]) => value != null && String(value).trim().length > 0)
     .slice(0, 8);
