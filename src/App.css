@@ -15,7 +15,7 @@
 }
 
 .app-sidebar {
-  @apply hidden h-full shrink-0 flex-col border-r border-slate-200/80 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/70 md:flex;
+  @apply hidden h-full shrink-0 flex-col justify-between border-r border-slate-200/80 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/70 md:flex;
   overflow: visible;
   transition: width 220ms ease, padding 220ms ease;
 }
@@ -174,16 +174,44 @@
 
 /* ── Settings at bottom ── */
 .app-sidebar-bottom {
-  @apply border-t border-slate-200/80 pt-3 dark:border-slate-800;
+  @apply mt-auto border-t border-slate-200/80 pt-3 dark:border-slate-800;
 }
 
 .app-nav {
   @apply flex flex-col items-stretch gap-2;
 }
 
-.app-nav-link {
-  @apply rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100;
-  @apply flex items-center gap-2;
+.app-profile-bottom-container {
+  @apply relative flex items-center justify-between gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800;
+}
+
+.app-profile-bottom-name {
+  @apply flex flex-1 items-center gap-2 bg-transparent text-left;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.app-profile-avatar-small {
+  @apply flex h-6 w-6 shrink-0 items-center justify-center;
+}
+
+.app-profile-avatar {
+  @apply h-6 w-6 rounded-full object-cover;
+}
+
+.app-profile-name-text {
+  @apply min-w-0 flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100;
+}
+
+.app-settings-button {
+  @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200;
+}
+
+.app-settings-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .app-profile-bottom-group {
@@ -194,34 +222,11 @@
   @apply justify-between;
 }
 
-.app-profile-avatar {
-  @apply h-6 w-6 rounded-full object-cover;
-}
-
 .app-profile-menu-bottom {
   @apply absolute left-0 bottom-full mb-2 w-full max-w-[18rem] rounded-2xl border border-slate-200 bg-white p-3 text-sm shadow-xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-950;
   z-index: 20;
 }
 
-.app-profile-menu-header {
-  display: none;
-}
-
-.app-profile-menu-item {
-  @apply mb-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200;
-}
-
-.app-profile-menu-item span {
-  @apply block text-xs text-slate-500 dark:text-slate-400;
-}
-
-.app-profile-menu-item strong {
-  @apply mt-1 block text-sm text-slate-900 dark:text-slate-100;
-}
-
-.app-profile-menu-logout {
-  @apply w-full rounded-xl bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700;
-}
 
 .app-nav-icon {
   @apply flex h-5 w-5 items-center justify-center;
@@ -241,8 +246,16 @@
   @apply justify-center;
 }
 
-.app-sidebar-collapsed .app-nav-link {
-  @apply justify-center px-0;
+.app-sidebar-collapsed .app-profile-bottom-container {
+  @apply justify-center;
+}
+
+.app-sidebar-collapsed .app-profile-bottom-name {
+  @apply w-6 h-6 justify-center;
+}
+
+.app-sidebar-collapsed .app-settings-button {
+  @apply hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {

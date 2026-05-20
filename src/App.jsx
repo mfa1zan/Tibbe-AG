@@ -657,36 +657,38 @@ function AppShell() {
           </div>
         ) : null}
 
-        {/* ── Settings at the bottom ── */}
+        {/* ── User info and settings at the bottom ── */}
         <nav className="app-sidebar-bottom" aria-label="User navigation">
           <div className="app-nav">
-            <NavLink
-              to="/settings"
-              className={({ isActive }) => `app-nav-link ${isActive ? 'app-nav-link-active' : ''}`}
-              title="Settings"
-            >
-              <span className="app-nav-icon" aria-hidden="true"><SettingsIcon /></span>
-              {isSidebarExpanded ? <span className="app-nav-label">Settings</span> : null}
-            </NavLink>
-
-            <div className="app-profile-bottom-group" onClick={(event) => event.stopPropagation()}>
+            <div className="app-profile-bottom-container">
               <button
                 type="button"
-                className={`app-nav-link app-profile-bottom-button ${isProfileMenuOpen ? 'app-nav-link-active' : ''}`}
+                className="app-profile-bottom-name"
                 aria-haspopup="menu"
                 aria-expanded={isProfileMenuOpen}
                 onClick={toggleProfileMenu}
-                title="Open profile menu"
+                title={user?.display_name || 'Profile'}
               >
-                <span className="app-nav-icon" aria-hidden="true">
+                <span className="app-profile-avatar-small" aria-hidden="true">
                   {profileImageUrl ? (
                     <img className="app-profile-avatar" src={profileImageUrl} alt="Profile avatar" />
                   ) : (
                     <ProfileIcon />
                   )}
                 </span>
-                {isSidebarExpanded ? <span className="app-nav-label">{user?.display_name || 'Profile'}</span> : null}
+                {isSidebarExpanded ? <span className="app-profile-name-text">{user?.display_name || 'User'}</span> : null}
               </button>
+
+              {isSidebarExpanded && (
+                <NavLink
+                  to="/settings"
+                  className="app-settings-button"
+                  title="Settings"
+                  aria-label="Go to settings"
+                >
+                  <SettingsIcon />
+                </NavLink>
+              )}
 
               {isProfileMenuOpen ? (
                 <div className="app-profile-menu app-profile-menu-bottom" role="menu" aria-label="User profile menu">
